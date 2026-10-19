@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smart Parking Capstone | Automatic Gate Closure and Space Monitoring</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --asphalt: #2E3338;
+            --concrete: #EDEEEA;
+            --paper: #FAFAF8;
+            --line-yellow: #F2C230;
+            --sign-blue: #1E4F9C;
+            --free: #2E9E5B;
+            --taken: #C8423B;
+            --ink: #22262A;
+            --muted: #6A7077;
+            --rule: #D6D8D3;
+            --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; background: var(--concrete); color: var(--ink);
+            font-family: var(--body); font-size: 17px; line-height: 1.55;
+        }
+        a:focus-visible { outline: 3px solid var(--line-yellow); outline-offset: 2px; }
+
+        /* Navbar */
+        .navbar {
+            position: sticky; top: 0; z-index: 10;
+            background: var(--asphalt); border-bottom: 3px solid var(--line-yellow);
+        }
+        .navbar-inner {
+            max-width: 1040px; margin: 0 auto; padding: 0.6rem 1.25rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 0.6rem;
+            color: #fff; text-decoration: none;
+            font-family: var(--display); font-weight: 700; font-size: 1.25rem;
+        }
+        .sign {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2rem; height: 2rem; border-radius: 5px;
+            background: var(--sign-blue); color: #fff; border: 2px solid #fff;
+            font-family: var(--display); font-weight: 700; font-size: 1.35rem;
+        }
+        .navlinks { display: flex; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+        .navlinks a {
+            display: block; color: #D5D9DD; text-decoration: none; font-weight: 500;
+            padding: 0.4rem 0.8rem; border-radius: 4px;
+        }
+        .navlinks a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .navlinks a[aria-current="page"] { color: var(--asphalt); background: var(--line-yellow); }
+
+        /* Hero */
+        .hero { background: var(--asphalt); color: #F4F4F2; padding: 3rem 1.25rem 0; }
+        .hero-inner { max-width: 1040px; margin: 0 auto; }
+        .course { margin: 0 0 0.4rem; color: #B9BEC3; font-size: 0.95rem; }
+        h1 {
+            font-family: var(--display); font-weight: 700;
+            font-size: clamp(2.2rem, 6vw, 3.8rem); line-height: 1.02;
+            margin: 0 0 1rem; max-width: 18ch; letter-spacing: -0.01em;
+        }
+        .hero p.intro { max-width: 60ch; color: #DADDE0; font-size: 1.1rem; margin: 0 0 2rem; }
+        .cta {
+            display: inline-block; background: var(--line-yellow); color: var(--asphalt);
+            text-decoration: none; font-weight: 600; padding: 0.7rem 1.2rem; border-radius: 4px;
+            margin-bottom: 2.5rem;
+        }
+        .cta:hover { background: #FFD34A; }
+
+        .lot {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            border-top: 3px solid var(--line-yellow); height: 64px;
+        }
+        .bay { border-right: 3px solid var(--line-yellow); position: relative; }
+        .bay:first-child { border-left: 3px solid var(--line-yellow); }
+        .bay::after {
+            content: ""; position: absolute; left: 50%; top: 14px;
+            width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+            background: var(--free); box-shadow: 0 0 10px var(--free);
+        }
+        .bay.taken::after { background: var(--taken); box-shadow: 0 0 10px var(--taken); }
+
+        /* Body */
+        main { max-width: 1040px; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+        section { margin-bottom: 3.5rem; }
+        h2 {
+            font-family: var(--display); font-weight: 700; font-size: 2rem;
+            margin: 0 0 0.75rem; line-height: 1.1;
+        }
+        p { max-width: 70ch; }
+
+        .flow {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+            margin-top: 1.25rem; counter-reset: step;
+        }
+        .flow div {
+            background: var(--paper); padding: 1.25rem 1.4rem;
+            border-top: 4px solid var(--sign-blue);
+        }
+        .flow h3 {
+            margin: 0 0 0.4rem; font-size: 1.1rem;
+        }
+        .flow h3::before {
+            counter-increment: step; content: counter(step);
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 1.5rem; height: 1.5rem; margin-right: 0.5rem; border-radius: 50%;
+            background: var(--sign-blue); color: #fff; font-size: 0.85rem;
+        }
+        .flow p { margin: 0; font-size: 0.97rem; }
+
+        .modules { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; padding: 0; list-style: none; }
+        .modules li {
+            background: var(--paper); border: 1px solid var(--rule); border-radius: 999px;
+            padding: 0.35rem 0.9rem; font-weight: 500; font-size: 0.95rem;
+        }
+
+        .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2px; margin-top: 1rem; }
+        .member { background: var(--paper); padding: 1rem 1.25rem; border-left: 4px solid var(--rule); }
+        .member strong { display: block; }
+        .member span { color: var(--muted); font-size: 0.95rem; }
+        .member.lead { border-left-color: var(--line-yellow); }
+
+        .reports { margin-top: 1rem; }
+        .report {
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+            background: var(--paper); padding: 1.1rem 1.4rem; text-decoration: none; color: var(--ink);
+            border-left: 4px solid var(--free);
+        }
+        .report:hover { border-left-color: var(--sign-blue); }
+        .report strong { font-size: 1.1rem; }
+        .report span { color: var(--muted); font-size: 0.95rem; display: block; }
+        .report .go { color: var(--sign-blue); font-weight: 600; white-space: nowrap; }
+
+        footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 1rem 2rem; }
+
+        img, svg { max-width: 100%; }
+
+        @media (max-width: 860px) {
+            .flow { grid-template-columns: 1fr 1fr; }
+            .flow div:last-child { grid-column: 1 / -1; }
+        }
+        @media (max-width: 720px) {
+            .flow { grid-template-columns: 1fr; }
+            .flow div:last-child { grid-column: auto; }
+            .lot { grid-template-columns: repeat(6, 1fr); height: 48px; }
+            .bay:nth-child(n+7) { display: none; }
+            h2 { font-size: 1.7rem; }
+        }
+        @media (max-width: 520px) {
+            body { font-size: 16px; }
+            .hero { padding: 2rem 1rem 0; }
+            .hero p.intro { font-size: 1rem; }
+            main { padding: 2rem 1rem 3rem; }
+            .navbar-inner { padding: 0.5rem 1rem; }
+            .brand { font-size: 1.1rem; }
+            .brand .label { display: none; }
+            .cta { display: block; text-align: center; }
+            .report { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+            .team { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar" aria-label="Main">
+    <div class="navbar-inner">
+        <a class="brand" href="index.html"><span class="sign" aria-hidden="true">P</span><span class="label">Smart Parking Capstone</span></a>
+        <ul class="navlinks">
+            <li><a href="index.html" aria-current="page">Home</a></li>
+            <li><a href="mcr1.html">MCR I</a></li>
+        <li><a href="clipboard.html">Clipboard</a></li>
+        </ul>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="hero-inner">
+        <p class="course">COE/ELE 70AB Capstone Project</p>
+        <h1>Automatic Parking Lot Gate Closure and Smart Space Monitoring System</h1>
+        <p class="intro">A parking system that watches every space with a camera, closes the gate automatically when the lot is full, and shows drivers live availability on the web and on their phone.</p>
+        <a class="cta" href="mcr1.html">Read milestone report I</a>
+    </div>
+    <div class="lot" aria-hidden="true">
+        <div class="bay"></div><div class="bay taken"></div><div class="bay taken"></div><div class="bay"></div>
+        <div class="bay taken"></div><div class="bay"></div><div class="bay"></div><div class="bay taken"></div>
+        <div class="bay"></div><div class="bay taken"></div><div class="bay"></div><div class="bay"></div>
+    </div>
+</header>
+
+<main>
+    <section>
+        <h2>About the project</h2>
+        <p>Finding a parking spot usually means circling a lot that is already full. Our system removes that guesswork. A fixed camera and computer vision track which spaces are taken, the entrance gate only opens when a space is free and the driver is authorized, and every change is sent to a central server so drivers can check availability before they arrive.</p>
+        <p>The first parking building is built as a physical model, and additional buildings are simulated to show that the design scales to many locations. Every building reports to one central cloud server running on our VPS, which also hosts this website and the API used by the iOS and desktop apps.</p>
+
+        <div class="flow">
+            <div>
+                <h3>Detect</h3>
+                <p>A camera with YOLO vehicle detection marks each mapped space as free or occupied.</p>
+            </div>
+            <div>
+                <h3>Decide</h3>
+                <p>A local gateway runs the gate logic, opening for authorized entries and staying closed when the lot is full.</p>
+            </div>
+            <div>
+                <h3>Display</h3>
+                <p>LEDs, the entrance sign, the website and the iOS app all show the same live availability.</p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>System modules</h2>
+        <ul class="modules">
+            <li>Computer vision</li>
+            <li>Automatic gate</li>
+            <li>Status display and logging</li>
+            <li>Backend and database</li>
+            <li>Website with 3D viewer</li>
+            <li>iOS app with CarPlay</li>
+            <li>Routing</li>
+            <li>Digital twin</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Team</h2>
+        <div class="team">
+            <div class="member lead"><strong>Mohamed Abouzaid</strong><span>System architecture, backend and website</span></div>
+            <div class="member"><strong>Ashwini Erambalur</strong><span>Computer vision and detection</span></div>
+            <div class="member"><strong>Julian Vila</strong><span>Gate hardware and control</span></div>
+            <div class="member"><strong>Ezz Alzokm</strong><span>Display, logging and testing</span></div>
+        </div>
+        <p style="margin-top:1rem; color:var(--muted);">Faculty supervisor: Meranda Salem</p>
+    </section>
+
+    <section>
+        <h2>Milestone reports</h2>
+        <div class="reports">
+            <a class="report" href="mcr1.html">
+                <div>
+                    <strong>MCR I</strong>
+                    <span>Weeks 4 and 5: scope, architecture, and first proof-of-concepts</span>
+                </div>
+                <span class="go">Open report</span>
+            </a>
+        </div>
+    </section>
+</main>
+
+<footer>COE/ELE 70AB Capstone</footer>
+
+</body>
+</html>

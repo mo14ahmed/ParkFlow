@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MCR I | Automatic Parking Lot Gate Closure and Smart Space Monitoring System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --asphalt: #2E3338;
+            --concrete: #EDEEEA;
+            --paper: #FAFAF8;
+            --line-yellow: #F2C230;
+            --sign-blue: #1E4F9C;
+            --free: #2E9E5B;
+            --taken: #C8423B;
+            --ink: #22262A;
+            --muted: #6A7077;
+            --rule: #D6D8D3;
+            --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0;
+            background: var(--concrete);
+            color: var(--ink);
+            font-family: var(--body);
+            font-size: 17px;
+            line-height: 1.55;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: sticky; top: 0; z-index: 10;
+            background: var(--asphalt); border-bottom: 3px solid var(--line-yellow);
+        }
+        .navbar-inner {
+            max-width: 1040px; margin: 0 auto; padding: 0.6rem 1.25rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 0.6rem;
+            color: #fff; text-decoration: none;
+            font-family: var(--display); font-weight: 700; font-size: 1.25rem;
+        }
+        .brand .sign { width: 2rem; height: 2rem; font-size: 1.35rem; border-radius: 5px; }
+        .navlinks { display: flex; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+        .navlinks a {
+            display: block; color: #D5D9DD; text-decoration: none; font-weight: 500;
+            padding: 0.4rem 0.8rem; border-radius: 4px;
+        }
+        .navlinks a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .navlinks a[aria-current="page"] { color: var(--asphalt); background: var(--line-yellow); }
+
+        /* Hero: the lot itself */
+        .hero {
+            background: var(--asphalt);
+            color: #F4F4F2;
+            padding: 2.5rem 1.25rem 0;
+        }
+        .hero-inner { max-width: 1040px; margin: 0 auto; }
+        .sign {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.6rem; height: 2.6rem; border-radius: 6px;
+            background: var(--sign-blue); color: #fff;
+            font-family: var(--display); font-weight: 700; font-size: 1.8rem;
+            border: 2px solid #fff;
+        }
+        .course { margin: 0 0 0.25rem; color: #B9BEC3; font-size: 0.95rem; }
+        h1 {
+            font-family: var(--display); font-weight: 700;
+            font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.02;
+            margin: 0 0 1.5rem; max-width: 20ch; letter-spacing: -0.01em;
+        }
+        .meta {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 1rem 2rem; margin: 0 0 2rem; padding: 0;
+        }
+        .meta dt { color: #9DA3A9; font-size: 0.85rem; }
+        .meta dd { margin: 0.1rem 0 0; font-weight: 500; }
+        .meta dd span { display: block; }
+
+        /* Parking stripes as the hero's signature */
+        .lot {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            border-top: 3px solid var(--line-yellow);
+            height: 64px;
+        }
+        .bay { border-right: 3px solid var(--line-yellow); position: relative; }
+        .bay:first-child { border-left: 3px solid var(--line-yellow); }
+        .bay::after {
+            content: ""; position: absolute; left: 50%; top: 14px;
+            width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+            background: var(--free); box-shadow: 0 0 10px var(--free);
+        }
+        .bay.taken::after { background: var(--taken); box-shadow: 0 0 10px var(--taken); }
+
+        /* Body */
+        main { max-width: 1040px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+        nav.toc {
+            display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem;
+        }
+        nav.toc a {
+            text-decoration: none; color: var(--ink); background: var(--paper);
+            border: 1px solid var(--rule); border-radius: 999px;
+            padding: 0.35rem 0.9rem; font-weight: 500; font-size: 0.95rem;
+        }
+        nav.toc a:hover { border-color: var(--sign-blue); color: var(--sign-blue); }
+        a:focus-visible { outline: 3px solid var(--sign-blue); outline-offset: 2px; }
+
+        section.part { margin-bottom: 3.5rem; scroll-margin-top: 4.5rem; }
+        section.part > h2 {
+            font-family: var(--display); font-weight: 700; font-size: 2rem;
+            margin: 0 0 0.25rem; line-height: 1.1;
+        }
+        .lede { color: var(--muted); margin: 0 0 1.25rem; max-width: 70ch; }
+
+        .row {
+            display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem;
+            background: var(--paper); border-left: 4px solid var(--rule);
+            padding: 1.25rem 1.5rem; margin-bottom: 2px;
+        }
+        .row.group { border-left-color: var(--line-yellow); }
+        .who { font-weight: 600; line-height: 1.3; }
+        .who small { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+        .content { max-width: 72ch; min-width: 0; }
+        .content p { margin: 0 0 0.8rem; }
+        .content p:last-child, .content ul:last-child { margin-bottom: 0; }
+        .content ul { margin: 0 0 0.8rem; padding-left: 1.2rem; }
+        .content li { margin-bottom: 0.35rem; }
+        .content h3 { font-size: 1rem; margin: 1.1rem 0 0.4rem; }
+        .content h3:first-child { margin-top: 0; }
+        .empty { color: var(--muted); font-style: italic; }
+
+        /* Architecture diagram */
+        .diagram { overflow-x: auto; margin: 0.5rem 0 1rem; }
+        .diagram svg { display: block; min-width: 640px; width: 100%; height: auto; }
+
+        /* Gate state sequence */
+        .states { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0.4rem 0 0.9rem; }
+        .state {
+            font-family: var(--display); font-weight: 600; font-size: 0.95rem;
+            padding: 0.2rem 0.6rem; border-radius: 4px;
+            background: #E3E8F2; color: var(--sign-blue);
+        }
+        .state.alt { background: #F6E1DF; color: var(--taken); }
+        .arrow { color: var(--muted); }
+
+        .legend { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: 0.3rem 0 0.9rem; }
+        .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+        table.log { border-collapse: collapse; width: 100%; margin: 0.3rem 0 0.9rem; font-size: 0.95rem; }
+        table.log th, table.log td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+        table.log th { font-weight: 600; white-space: nowrap; }
+        .table-wrap { overflow-x: auto; }
+
+        .solution { border-left: 3px solid var(--free); padding-left: 0.8rem; margin: 0.4rem 0 0.9rem; }
+
+        .refs { font-size: 0.92rem; color: var(--muted); max-width: 80ch; padding-left: 1.6rem; margin: 0; }
+        .refs li { margin: 0 0 0.7rem; padding-left: 0.2rem; }
+        .refs a, .content a { color: var(--sign-blue); overflow-wrap: anywhere; }
+        img, svg { max-width: 100%; }
+
+        footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 1rem 2rem; }
+
+        .scroll-hint { display: none; color: var(--muted); font-size: 0.85rem; margin: 0 0 0.5rem; }
+
+        @media (max-width: 860px) {
+            .row { grid-template-columns: 150px 1fr; gap: 1.1rem; }
+        }
+        @media (max-width: 720px) {
+            .row { grid-template-columns: 1fr; gap: 0.5rem; padding: 1.1rem; }
+            .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+            .who small { margin-top: 0; }
+            .lot { grid-template-columns: repeat(6, 1fr); height: 48px; }
+            .bay:nth-child(n+7) { display: none; }
+            .scroll-hint { display: block; }
+            section.part > h2 { font-size: 1.7rem; }
+        }
+        @media (max-width: 520px) {
+            body { font-size: 16px; }
+            .hero { padding: 1.75rem 1rem 0; }
+            main { padding: 2rem 1rem 3rem; }
+            .navbar-inner { padding: 0.5rem 1rem; }
+            .brand { font-size: 1.1rem; }
+            .brand .label { display: none; }
+            .meta { grid-template-columns: 1fr; gap: 0.8rem; }
+            .row { padding: 1rem; }
+            .content ul { padding-left: 1.1rem; }
+            table.log th, table.log td { padding: 0.4rem; }
+            nav.toc a { font-size: 0.9rem; padding: 0.3rem 0.75rem; }
+        }
+        @media print {
+            body { background: #fff; font-size: 12pt; }
+            .hero { background: #fff; color: var(--ink); padding-top: 0; }
+            .meta dt, .course { color: var(--muted); }
+            .lot, nav.toc, .navbar { display: none; }
+            .row { break-inside: avoid; background: #fff; }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar" aria-label="Main">
+    <div class="navbar-inner">
+        <a class="brand" href="index.html"><span class="sign" aria-hidden="true">P</span><span class="label">Smart Parking Capstone</span></a>
+        <ul class="navlinks">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="mcr1.html" aria-current="page">MCR I</a></li>
+        <li><a href="clipboard.html">Clipboard</a></li>
+        </ul>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="hero-inner">
+        <p class="course">COE/ELE 70AB Capstone | Milestones Compliance Report I | Weeks 4 and 5</p>
+        <h1>Automatic Parking Lot Gate Closure and Smart Space Monitoring System</h1>
+        <dl class="meta">
+            <div><dt>Project manager this period</dt><dd>Mohamed Abouzaid</dd></div>
+            <div><dt>Team</dt><dd>
+                <span>Student B: Ashwini Erambalur</span>
+                <span>Student C: Julian Vila</span>
+                <span>Student D: Ezz Alzokm</span>
+            </dd></div>
+            <div><dt>Faculty supervisor</dt><dd>Meranda Salem</dd></div>
+        </dl>
+    </div>
+    <div class="lot" aria-hidden="true">
+        <div class="bay"></div><div class="bay taken"></div><div class="bay taken"></div><div class="bay"></div>
+        <div class="bay taken"></div><div class="bay"></div><div class="bay"></div><div class="bay taken"></div>
+        <div class="bay"></div><div class="bay taken"></div><div class="bay"></div><div class="bay"></div>
+    </div>
+</header>
+
+<main>
+    <nav class="toc" aria-label="Report sections">
+        <a href="#tasks">Planned tasks</a>
+        <a href="#progress">Progress</a>
+        <a href="#difficulties">Difficulties</a>
+        <a href="#next">Next period</a>
+
+    </nav>
+
+    <!-- TASKS -->
+    <section class="part" id="tasks">
+        <h2>Tasks outlined for this period</h2>
+        <p class="lede">The tasks for weeks 4 and 5, as set in the milestones submitted to the FLC in week 3.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content">
+                <ul>
+                    <li>Finalize scope, requirements, architecture, interfaces, and responsibilities. Confirm the added modules: computer vision, website, routing, and digital twin.</li>
+                    <li>Select technologies and build first subsystem proof-of-concepts. Agree on the common data format shared by CV, backend, gate, and digital twin.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <ul>
+                    <li>Lead overall system design and architecture. Define the backend, API, database, website, routing, and digital-twin architecture.</li>
+                    <li>Create the backend/database skeleton, website wireframe, and integration interface specification.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <ul>
+                    <li>Define camera coverage, parking-space mapping, CV model and toolchain, and detection requirements.</li>
+                    <li>Bring up the camera feed, detect vehicles, and define parking-space polygons (ROIs).</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <ul>
+                    <li>Define gate hardware, entry/exit sensors, actuator, safety, and control approach.</li>
+                    <li>Bench-test the gate actuator and vehicle-passing sensor sequence.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Define display, logging, validation metrics, and test-plan requirements.</li>
+                    <li>Prototype the AVAILABLE/FULL display and basic event logging.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROGRESS -->
+    <section class="part" id="progress">
+        <h2>Progress made</h2>
+        <p class="lede">What each member completed during weeks 4 and 5, mapped to the tasks above.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content"><p class="empty">Not yet reported.</p></div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <h3>Architecture overview</h3>
+                <p class="scroll-hint">Swipe sideways to see the full diagram.</p>
+                <div class="diagram" role="img" aria-label="System architecture: parking buildings connect through a local gateway and MQTT broker to the cloud backend, which serves the website, iOS app and admin dashboard through a REST API and WebSocket.">
+                    <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" font-family="Barlow, system-ui, sans-serif">
+                        <!-- Building -->
+                        <rect x="8" y="20" width="200" height="262" rx="8" fill="#F1F2EE" stroke="#D6D8D3"/>
+                        <text x="22" y="44" font-size="15" font-weight="600" fill="#22262A">Parking building</text>
+                        <rect x="22" y="58" width="172" height="32" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="32" y="79" font-size="13" fill="#22262A">Space sensors + CV</text>
+                        <rect x="22" y="98" width="172" height="32" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="32" y="119" font-size="13" fill="#22262A">NFC card reader</text>
+                        <rect x="22" y="138" width="172" height="32" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="32" y="159" font-size="13" fill="#22262A">Gate motor, LCD, LEDs</text>
+                        <rect x="22" y="196" width="172" height="70" rx="4" fill="#2E3338"/>
+                        <text x="32" y="219" font-size="13" font-weight="600" fill="#fff">Local gateway (Pi)</text>
+                        <text x="32" y="238" font-size="12" fill="#C9CDD1">Runs gate logic offline</text>
+                        <text x="32" y="255" font-size="12" fill="#C9CDD1">Buffers and replays events</text>
+                        <line x1="108" y1="172" x2="108" y2="194" stroke="#6A7077" stroke-width="2"/>
+
+                        <!-- MQTT -->
+                        <line x1="194" y1="231" x2="262" y2="231" stroke="#6A7077" stroke-width="2"/>
+                        <rect x="262" y="206" width="96" height="50" rx="25" fill="#F2C230"/>
+                        <text x="310" y="236" font-size="14" font-weight="600" fill="#22262A" text-anchor="middle">MQTT broker</text>
+                        <line x1="358" y1="231" x2="392" y2="231" stroke="#6A7077" stroke-width="2"/>
+
+                        <!-- Cloud -->
+                        <rect x="392" y="20" width="190" height="262" rx="8" fill="#E3E8F2" stroke="#BFCBE0"/>
+                        <text x="406" y="44" font-size="15" font-weight="600" fill="#1E4F9C">Cloud backend</text>
+                        <text x="406" y="68" font-size="12.5" fill="#22262A">Device communication</text>
+                        <text x="406" y="88" font-size="12.5" fill="#22262A">Live occupancy</text>
+                        <text x="406" y="108" font-size="12.5" fill="#22262A">Assignment and routing</text>
+                        <text x="406" y="128" font-size="12.5" fill="#22262A">Accounts and wallet billing</text>
+                        <text x="406" y="148" font-size="12.5" fill="#22262A">Logging and analytics</text>
+                        <text x="406" y="168" font-size="12.5" fill="#22262A">Admin, roles, gate override</text>
+                        <rect x="406" y="190" width="162" height="34" rx="4" fill="#fff" stroke="#BFCBE0"/>
+                        <text x="416" y="212" font-size="12.5" fill="#22262A">PostgreSQL database</text>
+                        <rect x="406" y="232" width="162" height="34" rx="4" fill="#fff" stroke="#BFCBE0"/>
+                        <text x="416" y="254" font-size="12.5" fill="#22262A">File storage (3D, maps)</text>
+
+                        <!-- API -->
+                        <line x1="582" y1="150" x2="616" y2="150" stroke="#6A7077" stroke-width="2"/>
+                        <text x="599" y="138" font-size="11" fill="#6A7077" text-anchor="middle">REST</text>
+                        <text x="599" y="170" font-size="11" fill="#6A7077" text-anchor="middle">WS</text>
+
+                        <!-- Clients -->
+                        <rect x="616" y="20" width="136" height="262" rx="8" fill="#F1F2EE" stroke="#D6D8D3"/>
+                        <text x="628" y="44" font-size="15" font-weight="600" fill="#22262A">Clients</text>
+                        <rect x="628" y="62" width="112" height="56" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="638" y="85" font-size="12.5" fill="#22262A">Public website</text>
+                        <text x="638" y="103" font-size="12" fill="#6A7077">3D viewer</text>
+                        <rect x="628" y="128" width="112" height="56" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="638" y="151" font-size="12.5" fill="#22262A">iOS app</text>
+                        <text x="638" y="169" font-size="12" fill="#6A7077">CarPlay</text>
+                        <rect x="628" y="194" width="112" height="56" rx="4" fill="#fff" stroke="#D6D8D3"/>
+                        <text x="638" y="217" font-size="12.5" fill="#22262A">Admin</text>
+                        <text x="638" y="235" font-size="12" fill="#6A7077">dashboard</text>
+                    </svg>
+                </div>
+                <p>The system is organized into three layers: the parking buildings, the cloud, and the user-facing clients. In each building, space sensors (supported by computer vision) report whether each space is occupied or empty, an NFC reader handles stored-value cards, and a gate motor with a local LCD and LEDs controls entry and exit. These devices connect to a local gateway, such as a Raspberry Pi, that runs the gate logic on its own, keeps working if the internet drops, and buffers events to replay once the connection returns. The first building is real hardware, and the additional buildings are simulated to show that the design scales.</p>
+                <p>The gateway communicates with the cloud through an MQTT broker. MQTT is a lightweight publish/subscribe messaging protocol designed for constrained devices and unreliable networks (Banks &amp; Gupta, 2014). Devices publish small messages to named topics, and any subscriber to a topic receives them through a central broker. A single backend server, split into clear modules, consumes those messages. The modules cover device communication, live occupancy, space assignment and routing, accounts and wallet billing, logging and analytics, and admin functions such as roles and manual gate override.</p>
+                <p>The backend stores users, cards, ledgers, sessions, events and buildings in a PostgreSQL database, and keeps the 3D models and floor maps in file storage. It exposes a REST API for actions (Fielding, 2000) and a WebSocket for live updates. The public website with its interactive 3D viewer, the iOS app with CarPlay support, and the admin dashboard all use that same API, so every client sees the same live data.</p>
+                <h3>Development approach</h3>
+                <p>We will use the Agile methodology to build the website and to manage the project (Beck et al., 2001). Work is split into short sprints, each delivering a small working piece, such as live availability, then the 3D viewer, then accounts and the wallet. A prioritized backlog is reviewed at the end of every sprint, so feedback and changing requirements can be handled early instead of at the end.</p>
+                <h3>Cloud server</h3>
+                <p>The cloud layer runs on a dedicated VPS. Each parking building's gateway connects to it to report occupancy and gate events, and the same server hosts the public website and the REST API used by the iOS and desktop applications. The website is available at <a href="https://www.parkflow.tech">www.parkflow.tech</a>.</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <h3>Camera</h3>
+                <ul>
+                    <li>Defined a fixed, high-angle camera position so one camera covers multiple parking spots.</li>
+                    <li>Candidate camera: Arducam 8MP IMX219 USB. It is compatible with Windows, Linux and Raspberry Pi, inexpensive, and easy to mount.</li>
+                </ul>
+                <h3>Space mapping and detection</h3>
+                <ul>
+                    <li>Parking spaces are mapped in OpenCV, with each spot defined manually as a polygon.</li>
+                    <li>The polygons work together with YOLO vehicle detection, which uses fast, real-time capable pretrained CNN models.</li>
+                    <li>A vehicle detected inside a spot marks that polygon as occupied.</li>
+                </ul>
+                <h3>Tracking and state changes</h3>
+                <ul>
+                    <li>ByteTrack (real-time performance) or DeepSORT (object tracking and identity) will change a spot's state between free and occupied only once a threshold of <em>n</em> consecutive frames is met.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <h3>Gate actuator</h3>
+                <p>Proposed a small servo motor driving a lightweight barrier arm for the model entrance gate. A servo suits a small prototype because the controller can command open and closed positions directly.</p>
+                <h3>Control states</h3>
+                <div class="states" aria-label="Gate control states">
+                    <span class="state">IDLE</span><span class="arrow">›</span>
+                    <span class="state">APPROACH</span><span class="arrow">›</span>
+                    <span class="state">OPEN</span><span class="arrow">›</span>
+                    <span class="state">PASSING</span><span class="arrow">›</span>
+                    <span class="state">CLOSE</span>
+                    <span class="state alt">FULL / BLOCKED</span>
+                </div>
+                <p>The gate should permit entry only when spaces are available and the entry request is authorized.</p>
+                <h3>Sensors</h3>
+                <p>Proposed infrared break-beam sensors in a two-stage sequence at both lanes: entrance sensors (E1, E2) detect approach and passage, and exit sensors (X1, X2) confirm a vehicle leaving.</p>
+                <h3>Bench-test plan</h3>
+                <ul>
+                    <li>Verify servo travel.</li>
+                    <li>Confirm the order of sensor triggers as a model car passes.</li>
+                    <li>Check that the gate stays closed when the lot is FULL.</li>
+                </ul>
+                <p>These tests remain to be carried out and documented during the proof-of-concept stage.</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <h3>Display logic</h3>
+                <p>Defined the AVAILABLE/FULL display logic and the parking status data it needs. The sign shows AVAILABLE if at least one space is free, and FULL if all spaces are occupied.</p>
+                <div class="legend">
+                    <span><i class="dot" style="background:var(--free)"></i>Green LED: space available</span>
+                    <span><i class="dot" style="background:var(--taken)"></i>Red LED: space occupied</span>
+                </div>
+                <h3>Event log format</h3>
+                <div class="table-wrap">
+                    <table class="log">
+                        <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+                        <tbody>
+                        <tr><td>Timestamp</td><td>When a car enters and leaves the lot, used for automatic payment</td></tr>
+                        <tr><td>Parking space ID</td><td>The lot number associated with each space</td></tr>
+                        <tr><td>Space count</td><td>Available spaces left in the lot</td></tr>
+                        <tr><td>State change</td><td>A space changing from available to occupied</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <h3>Test scenarios</h3>
+                <p>Created test scenarios for empty, partially occupied, and full parking lots to check display accuracy and update response time.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIFFICULTIES -->
+    <section class="part" id="difficulties">
+        <h2>Difficulties encountered</h2>
+        <p class="lede">Issues found during the period and how we plan to address them.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content">
+                <p>Our main challenge as a group was finalizing the scope after adding new modules (computer vision, website, routing and digital twin), since each one affected the others' requirements. Choosing between many hardware and software options, such as camera types, detection models, display types and gate sensors, took more research time than expected, and agreeing on one common data format for the CV, backend, gate and digital twin required several rounds of discussion. We also revised the overall architecture from a peer-to-peer design to a centralized cloud server after identifying consistency, security and management problems.</p>
+                <p class="solution">To keep progress on track, we split the research by subsystem and will hold regular integration checkpoints in the next period so each subsystem stays aligned with the shared architecture.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <p>In the first two weeks, I planned to design the system as a peer-to-peer (P2P) network, where each parking building (or even each parking space) would act as a peer and communicate directly with the others to share availability. As I worked through the design, I found that this approach creates several serious problems for a system like ours (Androutsellis-Theotokis &amp; Spinellis, 2004; Lua et al., 2005):</p>
+                <ul>
+                    <li><strong>Inconsistent data:</strong> without one source of truth, peers can hold conflicting views of the same space or the same card balance. Two buildings could assign the same space, or a stored-value card could be charged twice, because no node has the final say.</li>
+                    <li><strong>No single point for clients:</strong> the website, iOS app and desktop apps would need to locate and query many peers to build a complete picture, instead of calling one API.</li>
+                    <li><strong>Security and trust:</strong> payments, card authorization and admin overrides need a trusted authority. In a P2P network every peer must be trusted, and a compromised node can spread false data.</li>
+                    <li><strong>Peers going offline:</strong> when a building's node goes offline, its data becomes unavailable to the rest of the network unless it is replicated across peers, which adds complexity.</li>
+                    <li><strong>Growing connection count:</strong> in a fully connected network the number of links grows as n(n&minus;1)/2, so every new building adds connections to all the others.</li>
+                    <li><strong>Hard to manage:</strong> software updates, logging and analytics would have to be handled across every node instead of in one place.</li>
+                </ul>
+                <p class="solution">Solution: I changed the design to a centralized client-server architecture. Each building runs a local gateway that keeps the gate working offline and buffers events. All gateways report to one cloud server through an MQTT broker. The cloud server is the single source of truth for occupancy, accounts and billing, and serves one API to all clients.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <p>Comparing the options in depth for hardware (camera angle, camera type) and software (vehicle detection with CNN or transformer models).</p>
+                <p class="solution">Solution: thorough research and comparison charts across the options, rating each on cost-effectiveness, implementation difficulty, accuracy and reliability, scalability, and overall system compatibility.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <p>The main design challenge is telling a vehicle that passes through the gate apart from one that approaches and reverses, stops in the sensor beam, or triggers the sensors more than once.</p>
+                <p class="solution">Possible solution: use the ordered E1 to E2 and X1 to X2 sensor sequences, require a valid state transition before counting a vehicle, and add a short re-trigger lockout or event confirmation to prevent duplicate counts.</p>
+                <p>A sensor obstruction or failure could leave the gate in an unsafe or indeterminate state.</p>
+                <p class="solution">Possible solution: add timeout and fault states. When passage is uncertain, keep the gate from closing onto the vehicle and require recovery or manual intervention.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <p>Researched the differences in cost and quality between LCD, OLED and LED displays. LEDs were the most efficient and cost-effective option for our need, which is simply showing two colours for parking state.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEXT -->
+    <section class="part" id="next">
+        <h2>Tasks for the next period</h2>
+        <p class="lede">Matches the week 3 milestones. Project manager for the next period: <span class="empty">to be confirmed</span>.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content">
+                <ul>
+                    <li>Implement reliable occupancy detection and initial gate logic. Test live space status through the central application.</li>
+                    <li>Integrate computer vision with the physical parking prototype. Show the live available-space count on the website.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <ul>
+                    <li>Create the occupancy API, live availability data model, and database connection.</li>
+                    <li>Connect CV occupancy to the backend, database and website, and coordinate the integration checkpoint.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <ul>
+                    <li>Implement vehicle detection, ROI overlap, and multi-frame confirmation.</li>
+                    <li>Calibrate cameras and ROIs, and handle shadows, brief occlusion, and vehicles passing spaces.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <ul>
+                    <li>Implement the gate state machine: IDLE, APPROACH, OPEN, PASSING, CLOSE, FULL/BLOCKED.</li>
+                    <li>Connect the gate decision to central availability and verify the open/close sequence.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Create test cases for occupancy, count and display accuracy, and response time.</li>
+                    <li>Integrate the physical status display and record the first performance measurements.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer>COE/ELE 70AB Capstone | MCR I</footer>
+
+</body>
+</html>
