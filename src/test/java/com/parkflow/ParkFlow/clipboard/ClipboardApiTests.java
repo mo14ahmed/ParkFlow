@@ -1,4 +1,4 @@
-package com.parkflow.ParkFlow;
+package com.parkflow.ParkFlow.clipboard;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -9,11 +9,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 @SpringBootTest(properties="parkflow.api-key=test-private-key")
 @AutoConfigureMockMvc
-class TestApiControllerTests {
+class ClipboardApiTests {
  @Autowired MockMvc mvc;
- @Test void testEndpointUsesSharedKey() throws Exception {
-  mvc.perform(get("/api/test").header("X-API-Key","test-private-key")).andExpect(status().isOk()).andExpect(jsonPath("$.availableSpaces").value(42));
-  mvc.perform(get("/api/test")).andExpect(status().isUnauthorized());
+ @Test void clipboardKeyDoesNotOpenTheParkingApi() throws Exception {
+  mvc.perform(get("/api/me").header("X-API-Key","test-private-key")).andExpect(status().isUnauthorized());
  }
  @Test void allClipboardOperationsRequireKey() throws Exception {
   mvc.perform(get("/api/clipboard")).andExpect(status().isUnauthorized());
@@ -45,6 +44,6 @@ class TestApiControllerTests {
   mvc.perform(get("/ParkFlow/api/clipboard").contextPath("/ParkFlow").header("X-API-Key","test-private-key")).andExpect(status().isOk());
  }
  @Test void websiteIsPublic() throws Exception {
-  for(String path:new String[]{"/index.html","/mcr1.html","/clipboard.html","/clipboard.js","/clipboard.css"})mvc.perform(get(path)).andExpect(status().isOk());
+  for(String path:new String[]{"/","/index.html","/mcr1.html","/clipboard.html","/clipboard.js","/clipboard.css","/login.html","/signup.html","/account.html","/provider.html","/search.html","/admin.html","/css/app.css","/js/app.js","/vendor/leaflet/leaflet.js"})mvc.perform(get(path)).andExpect(status().isOk());
  }
 }

@@ -1,4 +1,4 @@
-package com.parkflow.ParkFlow;
+package com.parkflow.ParkFlow.clipboard;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import jakarta.validation.Valid;

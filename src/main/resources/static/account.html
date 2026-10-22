@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <title>Account | ParkFlow</title>
+</head>
+<body>
+<header id="topbar"></header>
+<main>
+    <h1>Your account</h1>
+    <p class="lead" id="summary">Loading…</p>
+    <div id="msg" class="msg"></div>
+    <div class="grid-2">
+        <form id="profile" class="card edge-blue" novalidate>
+            <h2>Details</h2>
+            <div class="grid-2">
+                <div class="field"><label for="firstName">First name</label><input id="firstName" name="firstName" type="text" maxlength="50" required></div>
+                <div class="field"><label for="lastName">Last name</label><input id="lastName" name="lastName" type="text" maxlength="50" required></div>
+            </div>
+            <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" maxlength="20" required></div>
+            <div class="field" id="companyField" hidden><label for="companyName">Company name</label><input id="companyName" name="companyName" type="text" maxlength="100"></div>
+            <div class="field" id="workField" hidden>
+                <label for="workLocation">Work location <span class="hint" style="display:inline">(optional)</span></label>
+                <input id="workLocation" name="workLocation" type="text" maxlength="200">
+            </div>
+            <button class="btn btn-primary" type="submit">Save details</button>
+        </form>
+        <form id="password" class="card" novalidate>
+            <h2>Password</h2>
+            <div class="field"><label for="currentPassword">Current password</label><input id="currentPassword" name="currentPassword" type="password" autocomplete="current-password" required></div>
+            <div class="field"><label for="newPassword">New password</label><input id="newPassword" name="newPassword" type="password" autocomplete="new-password" minlength="8" required><span class="hint">At least 8 characters.</span></div>
+            <button class="btn btn-secondary" type="submit">Change password</button>
+        </form>
+    </div>
+</main>
+<script src="js/app.js"></script>
+<script>
+(async function () {
+  PF.renderNav("account.html");
+  const msg = document.getElementById("msg");
+  const profile = document.getElementById("profile");
+  const pw = document.getElementById("password");
+  let user;
+  try { user = await PF.requireLogin(); } catch (err) { PF.say(msg, err.message, "error"); return; }
+  PF.renderNav("account.html");
+
+  function show(u) {
+    const role = { CUSTOMER: "Customer", PROVIDER: "Parking provider", ADMIN: "Admin" }[u.role];
+    const summary = document.getElementById("summary");
+    summary.innerHTML = PF.esc(u.username) + " · " + role +
+      (u.role === "PROVIDER" ? ' · <span class="badge ' + u.status + '">' + PF.statusText(u.status) + "</span>" : "");
+    ["firstName", "lastName", "phone", "companyName", "workLocation"].forEach((k) => { profile[k].value = u[k] || ""; });
+    document.getElementById("companyField").hidden = u.role !== "PROVIDER";
+    document.getElementById("workField").hidden = u.role !== "CUSTOMER";
+    if (u.role === "PROVIDER" && u.status === "PENDING")
+      PF.say(msg, "An admin is reviewing your account. You can add parking buildings now; customers will see them after approval.", "warn");
+    if (u.role === "PROVIDER" && u.status === "REJECTED")
+      PF.say(msg, "Your provider account was not approved, so customers can't see your parking. Contact the ParkFlow team if you think this is a mistake.", "error");
+  }
+  show(user);
+
+  profile.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = profile.querySelector("button"); btn.disabled = true;
+    try {
+      const d = PF.formData(profile);
+      user = await PF.api("PUT", "/api/me", d);
+      PF.saveUser(user); PF.renderNav("account.html"); show(user);
+      PF.showFieldErrors(profile, null);
+      PF.say(msg, "Your details are saved.", "ok");
+    } catch (err) { PF.showFieldErrors(profile, err); PF.say(msg, PF.errorText(err), "error"); }
+    btn.disabled = false;
+  });
+
+  pw.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = pw.querySelector("button"); btn.disabled = true;
+    try {
+      await PF.api("PUT", "/api/me/password", { currentPassword: pw.currentPassword.value, newPassword: pw.newPassword.value });
+      pw.reset(); PF.showFieldErrors(pw, null);
+      PF.say(msg, "Your password is changed.", "ok");
+    } catch (err) { PF.showFieldErrors(pw, err); PF.say(msg, PF.errorText(err), "error"); }
+    btn.disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

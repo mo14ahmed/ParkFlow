@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      # Tests use an in-memory H2 database, so no PostgreSQL service is needed here.
+      - name: Build and test
+        run: mvn -B verify
+      - name: Keep the WAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: parkflow-war
+          path: target/*.war
+          retention-days: 7

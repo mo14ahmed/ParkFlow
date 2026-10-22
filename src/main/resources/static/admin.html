@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <title>Approvals | ParkFlow</title>
+</head>
+<body>
+<header id="topbar"></header>
+<main>
+    <h1>Provider approvals</h1>
+    <p class="lead">Approve a parking provider to make their buildings visible to customers. You can change a decision later.</p>
+    <div id="msg" class="msg"></div>
+    <div class="row" role="group" aria-label="Filter providers" style="margin-bottom:1rem" id="filters">
+        <button type="button" class="btn btn-small btn-primary" data-status="PENDING">Waiting</button>
+        <button type="button" class="btn btn-small btn-secondary" data-status="ACTIVE">Approved</button>
+        <button type="button" class="btn btn-small btn-secondary" data-status="REJECTED">Not approved</button>
+        <button type="button" class="btn btn-small btn-secondary" data-status="">All</button>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Provider</th><th>Company</th><th>Phone</th><th>Buildings</th><th>Signed up</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody id="rows"><tr><td colspan="7" class="muted">Loading…</td></tr></tbody>
+        </table>
+    </div>
+</main>
+<script src="js/app.js"></script>
+<script>
+(async function () {
+  PF.renderNav("admin.html");
+  const msg = document.getElementById("msg");
+  const rows = document.getElementById("rows");
+  try { await PF.requireLogin(["ADMIN"]); } catch (err) { PF.say(msg, err.message, "error"); return; }
+  PF.renderNav("admin.html");
+  let filter = "PENDING";
+
+  async function load() {
+    document.querySelectorAll("#filters button").forEach((b) => {
+      const on = b.dataset.status === filter;
+      b.className = "btn btn-small " + (on ? "btn-primary" : "btn-secondary");
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    const list = await PF.api("GET", "/api/admin/providers" + (filter ? "?status=" + filter : ""));
+    if (!list.length) { rows.innerHTML = '<tr><td colspan="7" class="muted">No providers here.</td></tr>'; return; }
+    rows.innerHTML = list.map(({ provider: p, buildingCount }) =>
+      "<tr><td><strong>" + PF.esc(p.firstName + " " + p.lastName) + '</strong><div class="small muted">' + PF.esc(p.username) + "</div></td>" +
+      "<td>" + PF.esc(p.companyName || "") + "</td><td>" + PF.esc(p.phone) + "</td><td>" + buildingCount + "</td>" +
+      "<td>" + new Date(p.createdAt).toLocaleDateString() + "</td>" +
+      '<td><span class="badge ' + p.status + '">' + PF.statusText(p.status) + "</span></td>" +
+      '<td><div class="row" style="flex-wrap:nowrap">' +
+      (p.status !== "ACTIVE" ? '<button class="btn btn-primary btn-small" data-act="approve" data-id="' + p.id + '">Approve</button>' : "") +
+      (p.status !== "REJECTED" ? '<button class="btn btn-danger btn-small" data-act="reject" data-id="' + p.id + '">Reject</button>' : "") +
+      "</div></td></tr>").join("");
+    rows.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const u = await PF.api("POST", "/api/admin/providers/" + b.dataset.id + "/" + b.dataset.act);
+        PF.say(msg, (u.companyName || u.username) + (b.dataset.act === "approve" ? " is approved. Their buildings are now visible." : " was not approved. Their buildings stay hidden."), "ok");
+        await load();
+      } catch (err) { PF.say(msg, err.message, "error"); b.disabled = false; }
+    }));
+  }
+
+  document.querySelectorAll("#filters button").forEach((b) => b.addEventListener("click", () => { filter = b.dataset.status; load().catch((e) => PF.say(msg, e.message, "error")); }));
+  try { await load(); } catch (err) { PF.say(msg, err.message, "error"); }
+})();
+</script>
+</body>
+</html>

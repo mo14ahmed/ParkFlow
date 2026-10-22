@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="css/app.css">
+    <title>Find parking | ParkFlow</title>
+</head>
+<body>
+<header id="topbar"></header>
+<main>
+    <h1>Where are you going?</h1>
+    <p class="lead">Type a place or address. We'll show the 5 closest parking buildings.</p>
+    <form id="form" class="row" role="search" style="margin-bottom:1rem">
+        <label for="q" class="sr-only">Destination</label>
+        <input id="q" name="q" class="grow" type="search" placeholder="e.g. CN Tower, Toronto" autocomplete="off" maxlength="200" required>
+        <button class="btn btn-primary" type="submit">Search</button>
+    </form>
+    <div id="msg" class="msg"></div>
+    <div id="places" hidden style="margin-bottom:1rem">
+        <p class="small muted" style="margin:0 0 0.4rem">Did you mean:</p>
+        <div class="row" id="placeList"></div>
+    </div>
+    <div class="grid-map">
+        <div id="map" class="map" role="region" aria-label="Map of your destination and nearby parking"></div>
+        <section aria-live="polite">
+            <h2 id="resultsTitle">Closest parking</h2>
+            <ul class="list" id="results"><li class="empty">Search for a destination to see parking near it.</li></ul>
+        </section>
+    </div>
+</main>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/app.js"></script>
+<script>
+(async function () {
+  PF.renderNav("search.html");
+  const msg = document.getElementById("msg");
+  try { await PF.requireLogin(["CUSTOMER", "ADMIN"]); } catch (err) { PF.say(msg, err.message, "error"); return; }
+  PF.renderNav("search.html");
+
+  const map = PF.makeMap("map");
+  const layer = L.layerGroup().addTo(map);
+  const results = document.getElementById("results");
+  const placesBox = document.getElementById("places");
+  const placeList = document.getElementById("placeList");
+  let places = [];
+  const markers = {};
+
+  async function choose(index) {
+    const p = places[index];
+    placeList.querySelectorAll("button").forEach((b, i) => {
+      b.className = "btn btn-small " + (i === index ? "btn-primary" : "btn-secondary");
+      b.setAttribute("aria-pressed", i === index ? "true" : "false");
+    });
+    layer.clearLayers();
+    L.marker([p.latitude, p.longitude], { icon: PF.destinationIcon(), title: p.name, zIndexOffset: 1000 })
+      .bindPopup("<strong>Your destination</strong><br>" + PF.esc(p.name)).addTo(layer);
+    results.innerHTML = '<li class="empty">Finding parking…</li>';
+    try {
+      const list = await PF.api("GET", "/api/buildings/nearby?lat=" + p.latitude + "&lng=" + p.longitude + "&limit=5");
+      document.getElementById("resultsTitle").textContent = list.length ? "Closest parking (" + list.length + ")" : "Closest parking";
+      if (!list.length) {
+        results.innerHTML = '<li class="empty">No parking buildings yet. Providers are still adding them.</li>';
+        map.setView([p.latitude, p.longitude], 15);
+        return;
+      }
+      const bounds = [[p.latitude, p.longitude]];
+      results.innerHTML = list.map((b, i) => {
+        bounds.push([b.latitude, b.longitude]);
+        const dir = "https://www.openstreetmap.org/directions?engine=fossgis_osrm_foot&route=" + b.latitude + "%2C" + b.longitude + "%3B" + p.latitude + "%2C" + p.longitude;
+        return '<li class="' + (i === 0 ? "closest" : "") + '" data-id="' + b.id + '"><div class="result"><div>' +
+          "<strong>" + PF.esc(b.name) + "</strong>" + (i === 0 ? ' <span class="badge ok">Closest</span>' : "") +
+          '<div class="small muted">' + PF.esc(b.company || "") + "</div>" +
+          '<div class="small"><a href="#" data-show="' + b.id + '">Show on map</a> · <a href="' + dir + '" target="_blank" rel="noopener">Walking route</a></div>' +
+          '</div><div class="dist" aria-label="' + PF.km(b.distanceKm) + ' away">' + PF.km(b.distanceKm) + "</div></div></li>";
+      }).join("");
+      list.forEach((b) => {
+        markers[b.id] = L.marker([b.latitude, b.longitude], { icon: PF.parkingIcon(false), title: b.name })
+          .bindPopup("<strong>" + PF.esc(b.name) + "</strong><br>" + PF.esc(b.company || "") + "<br>" + PF.km(b.distanceKm) + " from your destination")
+          .addTo(layer);
+      });
+      results.querySelectorAll("[data-show]").forEach((a) => a.addEventListener("click", (e) => {
+        e.preventDefault();
+        const m = markers[a.dataset.show]; map.setView(m.getLatLng(), 17); m.openPopup();
+      }));
+      map.fitBounds(L.latLngBounds(bounds).pad(0.2), { maxZoom: 16 });
+    } catch (err) { results.innerHTML = ""; PF.say(msg, err.message, "error"); }
+  }
+
+  document.getElementById("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = document.getElementById("q").value.trim();
+    if (q.length < 2) { PF.say(msg, "Type at least 2 characters.", "error"); return; }
+    PF.say(msg, "");
+    const btn = e.target.querySelector("button"); btn.disabled = true;
+    try {
+      places = await PF.api("GET", "/api/places?q=" + encodeURIComponent(q));
+      if (!places.length) {
+        placesBox.hidden = true; layer.clearLayers();
+        results.innerHTML = '<li class="empty">No place found. Try a different name or address.</li>';
+        return;
+      }
+      placeList.innerHTML = places.map((p, i) => '<button type="button" class="btn btn-small btn-secondary" data-i="' + i + '">' + PF.esc(p.name.split(",").slice(0, 3).join(",")) + "</button>").join("");
+      placeList.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => choose(Number(b.dataset.i))));
+      placesBox.hidden = places.length < 2;
+      await choose(0);
+    } catch (err) { PF.say(msg, err.message, "error"); }
+    finally { btn.disabled = false; }
+  });
+})();
+</script>
+</body>
+</html>

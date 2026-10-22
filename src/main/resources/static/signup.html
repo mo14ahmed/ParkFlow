@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <title>Sign up | ParkFlow</title>
+</head>
+<body>
+<header id="topbar"></header>
+<main class="narrow">
+    <h1>Create an account</h1>
+    <p class="lead">Pick one account type. Parking providers are reviewed by an admin before customers can see their parking.</p>
+    <div id="msg" class="msg"></div>
+    <form id="form" class="card edge-blue" novalidate>
+        <fieldset>
+            <legend>Account type</legend>
+            <div class="choice">
+                <label><input type="radio" name="role" value="CUSTOMER" checked>
+                    <span><strong>Customer</strong><span class="muted small">I want to find parking.</span></span></label>
+                <label><input type="radio" name="role" value="PROVIDER">
+                    <span><strong>Parking provider</strong><span class="muted small">I offer a parking building.</span></span></label>
+            </div>
+        </fieldset>
+        <div class="grid-2">
+            <div class="field"><label for="firstName">First name</label><input id="firstName" name="firstName" type="text" autocomplete="given-name" maxlength="50" required></div>
+            <div class="field"><label for="lastName">Last name</label><input id="lastName" name="lastName" type="text" autocomplete="family-name" maxlength="50" required></div>
+        </div>
+        <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="20" required></div>
+        <div class="field" id="companyField" hidden>
+            <label for="companyName">Company name</label>
+            <input id="companyName" name="companyName" type="text" autocomplete="organization" maxlength="100">
+        </div>
+        <div class="field" id="workField">
+            <label for="workLocation">Work location <span class="hint" style="display:inline">(optional)</span></label>
+            <input id="workLocation" name="workLocation" type="text" maxlength="200">
+            <span class="hint">Where you go most days. We'll use it later for daily parking plans.</span>
+        </div>
+        <div class="field">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" maxlength="30" required>
+            <span class="hint">3 to 30 letters, numbers, dots, dashes or underscores.</span>
+        </div>
+        <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="100" required>
+            <span class="hint">At least 8 characters.</span>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+    </form>
+    <p class="muted small">Already have an account? <a href="login.html">Log in</a>.</p>
+</main>
+<script src="js/app.js"></script>
+<script>
+(function () {
+  PF.renderNav("signup.html");
+  const form = document.getElementById("form");
+  const msg = document.getElementById("msg");
+  const company = document.getElementById("companyField");
+  const work = document.getElementById("workField");
+  function syncRole() {
+    const provider = form.role.value === "PROVIDER";
+    company.hidden = !provider;
+    work.hidden = provider;
+  }
+  form.querySelectorAll('input[name="role"]').forEach((r) => r.addEventListener("change", syncRole));
+  syncRole();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d = PF.formData(form);
+    const body = { username: d.username, password: form.password.value, firstName: d.firstName, lastName: d.lastName,
+                   phone: d.phone, role: d.role };
+    if (d.role === "PROVIDER") body.companyName = d.companyName; else body.workLocation = d.workLocation;
+    const btn = form.querySelector("button[type=submit]"); btn.disabled = true;
+    try {
+      const auth = await PF.api("POST", "/api/auth/signup", body);
+      PF.saveSession(auth);
+      location.href = PF.homeFor(auth.user);
+    } catch (err) {
+      PF.showFieldErrors(form, err);
+      PF.say(msg, PF.errorText(err), "error");
+      btn.disabled = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  });
+})();
+</script>
+</body>
+</html>

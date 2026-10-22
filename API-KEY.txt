@@ -1,4 +1,0 @@
-Private shared clipboard key (X-API-Key):
-pf_7d10257aeeb6e48f823de37d7b8e0c87f16db8f345bf966f
-
-Keep this file private. The website never includes this key. Override it with PARKFLOW_API_KEY on the server if desired.

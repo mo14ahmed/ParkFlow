@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="css/app.css">
+    <title>My parking | ParkFlow</title>
+</head>
+<body>
+<header id="topbar"></header>
+<main>
+    <h1>My parking buildings</h1>
+    <p class="lead">Click the map where your parking building is, give it a name, and save. You can drag the pin to adjust it.</p>
+    <div id="status" class="msg"></div>
+    <div class="grid-map">
+        <div class="stack">
+            <form id="find" class="row" role="search">
+                <label for="q" class="sr-only">Find an address</label>
+                <input id="q" name="q" class="grow" type="search" placeholder="Find an address to move the map" autocomplete="off">
+                <button class="btn btn-secondary" type="submit">Find</button>
+            </form>
+            <div id="map" class="map" role="application" aria-label="Map. Click to place your parking building."></div>
+            <p class="muted small">Gray pins are hidden from customers until an admin approves your account.</p>
+        </div>
+        <div class="stack">
+            <form id="form" class="card edge-yellow" novalidate>
+                <h2 id="formTitle">Add a building</h2>
+                <div id="msg" class="msg"></div>
+                <div class="field">
+                    <label for="name">Name</label>
+                    <input id="name" name="name" type="text" maxlength="100" placeholder="e.g. Front Street Garage" required>
+                </div>
+                <p class="small muted" id="coords">No pin yet. Click the map to place one.</p>
+                <div class="row">
+                    <button class="btn btn-primary" type="submit" id="save">Save building</button>
+                    <button class="btn btn-secondary" type="button" id="cancel" hidden>Cancel</button>
+                    <button class="btn btn-danger" type="button" id="remove" hidden>Delete</button>
+                </div>
+            </form>
+            <section>
+                <h2>Your buildings</h2>
+                <ul class="list" id="list"><li class="empty">Loading…</li></ul>
+            </section>
+        </div>
+    </div>
+</main>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/app.js"></script>
+<script>
+(async function () {
+  PF.renderNav("provider.html");
+  const statusEl = document.getElementById("status");
+  const msg = document.getElementById("msg");
+  const form = document.getElementById("form");
+  const listEl = document.getElementById("list");
+  const coordsEl = document.getElementById("coords");
+  const cancelBtn = document.getElementById("cancel");
+  const removeBtn = document.getElementById("remove");
+  let user;
+  try { user = await PF.requireLogin(["PROVIDER"]); } catch (err) { PF.say(statusEl, err.message, "error"); return; }
+  PF.renderNav("provider.html");
+
+  if (user.status === "PENDING") PF.say(statusEl, "Your account is waiting for admin approval. Add your buildings now; customers will see them once you're approved.", "warn");
+  else if (user.status === "REJECTED") PF.say(statusEl, "Your provider account was not approved, so customers can't see your buildings.", "error");
+  else PF.say(statusEl, "Your account is approved. Customers can find your buildings.", "ok");
+
+  const map = PF.makeMap("map");
+  const layer = L.layerGroup().addTo(map);
+  let buildings = [];
+  let editingId = null;   // null = adding a new building
+  let draft = null;       // the draggable pin for the form
+
+  function setDraft(latlng) {
+    if (!draft) {
+      draft = L.marker(latlng, { draggable: true, icon: PF.parkingIcon(false), zIndexOffset: 1000, keyboard: true, title: "New pin" }).addTo(map);
+      draft.on("dragend", () => showCoords(draft.getLatLng()));
+    } else draft.setLatLng(latlng);
+    showCoords(latlng);
+  }
+  function showCoords(ll) { coordsEl.textContent = "Pin at " + ll.lat.toFixed(5) + ", " + ll.lng.toFixed(5) + ". Drag it to adjust."; }
+  function resetForm() {
+    editingId = null; form.reset();
+    if (draft) { map.removeLayer(draft); draft = null; }
+    coordsEl.textContent = "No pin yet. Click the map to place one.";
+    document.getElementById("formTitle").textContent = "Add a building";
+    cancelBtn.hidden = true; removeBtn.hidden = true;
+    PF.say(msg, ""); PF.showFieldErrors(form, null);
+    draw();
+  }
+
+  function draw() {
+    layer.clearLayers();
+    buildings.forEach((b) => {
+      if (b.id === editingId) return;
+      L.marker([b.latitude, b.longitude], { icon: PF.parkingIcon(!b.visible), title: b.name })
+        .bindPopup("<strong>" + PF.esc(b.name) + "</strong><br>" + (b.visible ? "Visible to customers" : "Hidden until approval"))
+        .on("click", () => edit(b.id))
+        .addTo(layer);
+    });
+    if (!buildings.length) { listEl.innerHTML = '<li class="empty">No buildings yet. Click the map to add your first one.</li>'; return; }
+    listEl.innerHTML = buildings.map((b) =>
+      '<li class="' + (b.id === editingId ? "selected" : "") + '"><div class="result"><div><strong>' + PF.esc(b.name) + "</strong>" +
+      '<div class="small muted">' + b.latitude.toFixed(5) + ", " + b.longitude.toFixed(5) + "</div></div>" +
+      '<div class="row"><span class="badge ' + (b.visible ? "ok" : "warn") + '">' + (b.visible ? "Visible" : "Hidden") + "</span>" +
+      '<button class="btn btn-secondary btn-small" type="button" data-edit="' + b.id + '">Edit</button></div></div></li>').join("");
+    listEl.querySelectorAll("[data-edit]").forEach((btn) => btn.addEventListener("click", () => edit(Number(btn.dataset.edit))));
+  }
+
+  function edit(id) {
+    const b = buildings.find((x) => x.id === id); if (!b) return;
+    editingId = id; form.name.value = b.name;
+    document.getElementById("formTitle").textContent = "Edit building";
+    cancelBtn.hidden = false; removeBtn.hidden = false;
+    setDraft(L.latLng(b.latitude, b.longitude));
+    map.setView([b.latitude, b.longitude], Math.max(map.getZoom(), 15));
+    PF.say(msg, ""); draw();
+    form.name.focus();
+  }
+
+  async function load() {
+    buildings = await PF.api("GET", "/api/provider/buildings");
+    draw();
+    if (buildings.length && !editingId) map.fitBounds(L.latLngBounds(buildings.map((b) => [b.latitude, b.longitude])).pad(0.3), { maxZoom: 15 });
+  }
+
+  map.on("click", (e) => { setDraft(e.latlng); form.name.focus(); });
+  cancelBtn.addEventListener("click", resetForm);
+
+  removeBtn.addEventListener("click", async () => {
+    const b = buildings.find((x) => x.id === editingId); if (!b) return;
+    if (!window.confirm('Delete "' + b.name + '"? This cannot be undone.')) return;
+    try { await PF.api("DELETE", "/api/provider/buildings/" + b.id); resetForm(); await load(); PF.say(msg, "Building deleted.", "ok"); }
+    catch (err) { PF.say(msg, err.message, "error"); }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = form.name.value.trim();
+    if (!draft) { PF.say(msg, "Click the map to place a pin first.", "error"); return; }
+    if (!name) { PF.say(msg, "Enter a name for the parking building.", "error"); form.name.focus(); return; }
+    const ll = draft.getLatLng();
+    const body = { name, latitude: Number(ll.lat.toFixed(6)), longitude: Number(ll.lng.toFixed(6)) };
+    const btn = document.getElementById("save"); btn.disabled = true;
+    try {
+      const wasEdit = editingId != null;
+      if (wasEdit) await PF.api("PUT", "/api/provider/buildings/" + editingId, body);
+      else await PF.api("POST", "/api/provider/buildings", body);
+      resetForm(); await load();
+      PF.say(msg, wasEdit ? "Building updated." : "Building saved.", "ok");
+    } catch (err) { PF.showFieldErrors(form, err); PF.say(msg, err.message, "error"); }
+    btn.disabled = false;
+  });
+
+  document.getElementById("find").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const q = document.getElementById("q").value.trim();
+    if (q.length < 2) return;
+    try {
+      const places = await PF.api("GET", "/api/places?q=" + encodeURIComponent(q));
+      if (!places.length) { PF.say(msg, "No address found. Try a different search.", "warn"); return; }
+      map.setView([places[0].latitude, places[0].longitude], 17);
+      PF.say(msg, "Map moved to " + places[0].name + ". Click the exact spot to place the pin.", "info");
+    } catch (err) { PF.say(msg, err.message, "error"); }
+  });
+
+  try { await load(); } catch (err) { PF.say(statusEl, err.message, "error"); }
+})();
+</script>
+</body>
+</html>
