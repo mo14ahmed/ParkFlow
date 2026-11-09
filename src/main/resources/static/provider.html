@@ -14,7 +14,7 @@
 <header id="topbar"></header>
 <main>
     <h1>My parking buildings</h1>
-    <p class="lead">Click the map where your parking building is, give it a name, and save. You can drag the pin to adjust it.</p>
+    <p class="lead">Click the map where your parking building is, give it a name, and save. You can drag the pin to adjust it. Then open <strong>Floor map</strong> to draw the floor, its parking spaces and cameras.</p>
     <div id="status" class="msg"></div>
     <div class="grid-map">
         <div class="stack">
@@ -106,7 +106,8 @@
       '<li class="' + (b.id === editingId ? "selected" : "") + '"><div class="result"><div><strong>' + PF.esc(b.name) + "</strong>" +
       '<div class="small muted">' + b.latitude.toFixed(5) + ", " + b.longitude.toFixed(5) + "</div></div>" +
       '<div class="row"><span class="badge ' + (b.visible ? "ok" : "warn") + '">' + (b.visible ? "Visible" : "Hidden") + "</span>" +
-      '<button class="btn btn-secondary btn-small" type="button" data-edit="' + b.id + '">Edit</button></div></div></li>').join("");
+      '<button class="btn btn-secondary btn-small" type="button" data-edit="' + b.id + '">Edit</button>' +
+      '<a class="btn btn-accent btn-small" href="floor-editor.html?building=' + b.id + '">Floor map</a></div></div></li>').join("");
     listEl.querySelectorAll("[data-edit]").forEach((btn) => btn.addEventListener("click", () => edit(Number(btn.dataset.edit))));
   }
 

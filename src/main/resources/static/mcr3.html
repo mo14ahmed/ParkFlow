@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MCR III | Automatic Parking Lot Gate Closure and Smart Space Monitoring System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --asphalt: #2E3338;
+            --concrete: #EDEEEA;
+            --paper: #FAFAF8;
+            --line-yellow: #F2C230;
+            --sign-blue: #1E4F9C;
+            --free: #2E9E5B;
+            --taken: #C8423B;
+            --ink: #22262A;
+            --muted: #6A7077;
+            --rule: #D6D8D3;
+            --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+        }
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            margin: 0;
+            background: var(--concrete);
+            color: var(--ink);
+            font-family: var(--body);
+            font-size: 17px;
+            line-height: 1.55;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: sticky; top: 0; z-index: 10;
+            background: var(--asphalt); border-bottom: 3px solid var(--line-yellow);
+        }
+        .navbar-inner {
+            max-width: 1040px; margin: 0 auto; padding: 0.6rem 1.25rem;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+        }
+        .brand {
+            display: flex; align-items: center; gap: 0.6rem;
+            color: #fff; text-decoration: none;
+            font-family: var(--display); font-weight: 700; font-size: 1.25rem;
+        }
+        .brand .sign { width: 2rem; height: 2rem; font-size: 1.35rem; border-radius: 5px; }
+        .navlinks { display: flex; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+        .navlinks a {
+            display: block; color: #D5D9DD; text-decoration: none; font-weight: 500;
+            padding: 0.4rem 0.8rem; border-radius: 4px;
+        }
+        .navlinks a:hover { color: #fff; background: rgba(255,255,255,0.08); }
+        .navlinks a[aria-current="page"] { color: var(--asphalt); background: var(--line-yellow); }
+
+        /* Hero: the lot itself */
+        .hero {
+            background: var(--asphalt);
+            color: #F4F4F2;
+            padding: 2.5rem 1.25rem 0;
+        }
+        .hero-inner { max-width: 1040px; margin: 0 auto; }
+        .sign {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 2.6rem; height: 2.6rem; border-radius: 6px;
+            background: var(--sign-blue); color: #fff;
+            font-family: var(--display); font-weight: 700; font-size: 1.8rem;
+            border: 2px solid #fff;
+        }
+        .course { margin: 0 0 0.25rem; color: #B9BEC3; font-size: 0.95rem; }
+        h1 {
+            font-family: var(--display); font-weight: 700;
+            font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.02;
+            margin: 0 0 1.5rem; max-width: 20ch; letter-spacing: -0.01em;
+        }
+        .meta {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 1rem 2rem; margin: 0 0 2rem; padding: 0;
+        }
+        .meta dt { color: #9DA3A9; font-size: 0.85rem; }
+        .meta dd { margin: 0.1rem 0 0; font-weight: 500; }
+        .meta dd span { display: block; }
+
+        /* Parking stripes as the hero's signature */
+        .lot {
+            display: grid; grid-template-columns: repeat(12, 1fr);
+            border-top: 3px solid var(--line-yellow);
+            height: 64px;
+        }
+        .bay { border-right: 3px solid var(--line-yellow); position: relative; }
+        .bay:first-child { border-left: 3px solid var(--line-yellow); }
+        .bay::after {
+            content: ""; position: absolute; left: 50%; top: 14px;
+            width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
+            background: var(--free); box-shadow: 0 0 10px var(--free);
+        }
+        .bay.taken::after { background: var(--taken); box-shadow: 0 0 10px var(--taken); }
+
+        /* Body */
+        main { max-width: 1040px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+        nav.toc {
+            display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2.5rem;
+        }
+        nav.toc a {
+            text-decoration: none; color: var(--ink); background: var(--paper);
+            border: 1px solid var(--rule); border-radius: 999px;
+            padding: 0.35rem 0.9rem; font-weight: 500; font-size: 0.95rem;
+        }
+        nav.toc a:hover { border-color: var(--sign-blue); color: var(--sign-blue); }
+        a:focus-visible { outline: 3px solid var(--sign-blue); outline-offset: 2px; }
+
+        section.part { margin-bottom: 3.5rem; scroll-margin-top: 4.5rem; }
+        section.part > h2 {
+            font-family: var(--display); font-weight: 700; font-size: 2rem;
+            margin: 0 0 0.25rem; line-height: 1.1;
+        }
+        .lede { color: var(--muted); margin: 0 0 1.25rem; max-width: 70ch; }
+
+        .row {
+            display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem;
+            background: var(--paper); border-left: 4px solid var(--rule);
+            padding: 1.25rem 1.5rem; margin-bottom: 2px;
+        }
+        .row.group { border-left-color: var(--line-yellow); }
+        .who { font-weight: 600; line-height: 1.3; }
+        .who small { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+        .content { max-width: 72ch; min-width: 0; }
+        .content p { margin: 0 0 0.8rem; }
+        .content p:last-child, .content ul:last-child { margin-bottom: 0; }
+        .content ul { margin: 0 0 0.8rem; padding-left: 1.2rem; }
+        .content li { margin-bottom: 0.35rem; }
+        .content h3 { font-size: 1rem; margin: 1.1rem 0 0.4rem; }
+        .content h3:first-child { margin-top: 0; }
+        .empty { color: var(--muted); font-style: italic; }
+
+        /* Architecture diagram */
+        .diagram { overflow-x: auto; margin: 0.5rem 0 1rem; }
+        .diagram svg { display: block; min-width: 640px; width: 100%; height: auto; }
+
+        /* Gate state sequence */
+        .states { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0.4rem 0 0.9rem; }
+        .state {
+            font-family: var(--display); font-weight: 600; font-size: 0.95rem;
+            padding: 0.2rem 0.6rem; border-radius: 4px;
+            background: #E3E8F2; color: var(--sign-blue);
+        }
+        .state.alt { background: #F6E1DF; color: var(--taken); }
+        .arrow { color: var(--muted); }
+
+        .legend { display: flex; gap: 1.25rem; flex-wrap: wrap; margin: 0.3rem 0 0.9rem; }
+        .legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+        table.log { border-collapse: collapse; width: 100%; margin: 0.3rem 0 0.9rem; font-size: 0.95rem; }
+        table.log th, table.log td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+        table.log th { font-weight: 600; white-space: nowrap; }
+        .table-wrap { overflow-x: auto; }
+
+        .solution { border-left: 3px solid var(--free); padding-left: 0.8rem; margin: 0.4rem 0 0.9rem; }
+
+        .refs { font-size: 0.92rem; color: var(--muted); max-width: 80ch; padding-left: 1.6rem; margin: 0; }
+        .refs li { margin: 0 0 0.7rem; padding-left: 0.2rem; }
+        .refs a, .content a { color: var(--sign-blue); overflow-wrap: anywhere; }
+        img, svg { max-width: 100%; }
+
+        footer { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 0 1rem 2rem; }
+
+        .scroll-hint { display: none; color: var(--muted); font-size: 0.85rem; margin: 0 0 0.5rem; }
+
+        @media (max-width: 860px) {
+            .row { grid-template-columns: 150px 1fr; gap: 1.1rem; }
+        }
+        @media (max-width: 720px) {
+            .row { grid-template-columns: 1fr; gap: 0.5rem; padding: 1.1rem; }
+            .who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+            .who small { margin-top: 0; }
+            .lot { grid-template-columns: repeat(6, 1fr); height: 48px; }
+            .bay:nth-child(n+7) { display: none; }
+            .scroll-hint { display: block; }
+            section.part > h2 { font-size: 1.7rem; }
+        }
+        @media (max-width: 520px) {
+            body { font-size: 16px; }
+            .hero { padding: 1.75rem 1rem 0; }
+            main { padding: 2rem 1rem 3rem; }
+            .navbar-inner { padding: 0.5rem 1rem; }
+            .brand { font-size: 1.1rem; }
+            .brand .label { display: none; }
+            .meta { grid-template-columns: 1fr; gap: 0.8rem; }
+            .row { padding: 1rem; }
+            .content ul { padding-left: 1.1rem; }
+            table.log th, table.log td { padding: 0.4rem; }
+            nav.toc a { font-size: 0.9rem; padding: 0.3rem 0.75rem; }
+        }
+        @media print {
+            body { background: #fff; font-size: 12pt; }
+            .hero { background: #fff; color: var(--ink); padding-top: 0; }
+            .meta dt, .course { color: var(--muted); }
+            .lot, nav.toc, .navbar { display: none; }
+            .row { break-inside: avoid; background: #fff; }
+        }
+    
+        /* Figures and video */
+        figure.fig { margin: 0.6rem 0 1.1rem; }
+        figure.fig img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 4px; background: #fff; }
+        figure.fig img + img { margin-top: 0.4rem; }
+        figure.fig.narrow img { max-width: 520px; }
+        figcaption { color: var(--muted); font-size: 0.92rem; margin-top: 0.4rem; }
+        figcaption strong { color: var(--ink); font-weight: 600; }
+        .video { margin: 0.6rem 0 1.1rem; }
+        .video video { display: block; width: 100%; height: auto; background: #000; border-radius: 4px; }
+        .content ul ul { margin: 0.35rem 0 0; }
+        .content h3[id] { scroll-margin-top: 4.5rem; }
+        @media print { .video { display: none; } }
+    </style>
+</head>
+<body>
+
+<nav class="navbar" aria-label="Main">
+    <div class="navbar-inner">
+        <a class="brand" href="index.html"><span class="sign" aria-hidden="true">P</span><span class="label">Smart Parking Capstone</span></a>
+        <ul class="navlinks">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="mcr1.html">MCR I</a></li>
+            <li><a href="mcr3.html" aria-current="page">MCR III</a></li>
+            <li><a href="search.html">Find parking</a></li>
+            <li><a href="login.html">Log in</a></li>
+        </ul>
+    </div>
+</nav>
+
+<header class="hero">
+    <div class="hero-inner">
+        <p class="course">COE/ELE 70AB Capstone | Milestones Compliance Report III</p>
+        <h1>Automatic Parking Lot Gate Closure and Smart Space Monitoring System</h1>
+        <dl class="meta">
+            <div><dt>Project manager this period</dt><dd>Julian Vila (Student C)</dd></div>
+            <div><dt>Team</dt><dd>
+                <span>Student A: Mohamed Abouzaid</span>
+                <span>Student B: Ashwini Erambalur</span>
+                <span>Student D: Ezz Alzokm</span>
+            </dd></div>
+            <div><dt>Faculty supervisor</dt><dd>Dr. Meranda Salem</dd></div>
+        </dl>
+    </div>
+    <div class="lot" aria-hidden="true">
+        <div class="bay"></div><div class="bay taken"></div><div class="bay taken"></div><div class="bay"></div>
+        <div class="bay taken"></div><div class="bay"></div><div class="bay"></div><div class="bay taken"></div>
+        <div class="bay"></div><div class="bay taken"></div><div class="bay"></div><div class="bay"></div>
+    </div>
+</header>
+
+<main>
+    <nav class="toc" aria-label="Report sections">
+        <a href="#tasks">Planned tasks</a>
+        <a href="#progress">Progress</a>
+        <a href="#video">Video</a>
+        <a href="#difficulties">Difficulties</a>
+        <a href="#next">Next period</a>
+    </nav>
+
+    <!-- TASKS -->
+    <section class="part" id="tasks">
+        <h2>Tasks outlined for this period</h2>
+        <p class="lede">The tasks for this reporting period, as set in the project milestones.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content">
+                <ul>
+                    <li>Develop booking, parking-session, payment, and assigned-space routing workflows.</li>
+                    <li>Create the first live digital twin and connect it to the real parking data.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <ul>
+                    <li>Implement website availability, spot selection/reservation, parking time/cost, test payment flow, and routing service.</li>
+                    <li>Build digital-twin view and bind spaces, gate state, routes, reservations, and live data.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <ul>
+                    <li>Provide stable space IDs, occupancy confidence, and space coordinates for routing.</li>
+                    <li>Feed occupancy and vehicle-tracking data to the digital twin.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <ul>
+                    <li>Support reservation-based entry authorization and test booked/full/cancelled/exit scenarios.</li>
+                    <li>Send gate state and entry/exit events to backend/twin.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Validate user flow: Find &rarr; Book &rarr; Pay/Confirm &rarr; Enter &rarr; Route &rarr; Park &rarr; Exit.</li>
+                    <li>Validate physical prototype state against website and digital twin.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- PROGRESS -->
+    <section class="part" id="progress">
+        <h2>Progress made</h2>
+        <p class="lede">What each member completed during this period, mapped to the tasks above.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content"><p class="empty">Not yet reported.</p></div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <p>This period we extended ParkFlow so a parking provider can draw a 3D map of one floor of their building, place cameras on it, and link each camera to the parking spaces it can see. The backend now stores each space's live state (free, taken or unknown), so a camera running a YOLO detection model can report changes to the API and everyone can watch the floor update on a live 3D map.</p>
+                <p>Each approved provider manages their parking buildings on a real map, and every building now has a Floor map button that opens the editor (Figure 1). Buildings stay hidden from customers until an admin approves the provider's account.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/a1-provider-dashboard.png" alt="Provider dashboard with buildings pinned on a map" width="1905" height="910" loading="lazy">
+                    <figcaption><strong>Figure 1:</strong> Provider dashboard with buildings pinned on an OpenStreetMap map, each with a Floor map button that opens the 3D editor.</figcaption>
+                </figure>
+                <p>We built the editor in the web app with Three.js, where the provider sets the floor size, draws walls, places columns and adds parking spaces one at a time with editable names and sizes (Figure 2). In our test building, Victor Parking, we drew a 60 x 40 m ground floor with 5 walls, 4 columns and 12 spaces (A01 to A08 and B01 to B04).</p>
+                <p>A camera is mounted by clicking on or next to a wall or column, and it automatically faces away from that surface. The provider then clicks the spaces each camera can see; each camera gets its own colour, each space can belong to only one camera, and a Checks panel lists the spaces that have no camera yet.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/a2-floor-editor-cameras.png" alt="Floor editor with two cameras and their spaces" width="1911" height="907" loading="lazy">
+                    <figcaption><strong>Figure 2:</strong> Floor editor for Victor Parking. Camera 1 (blue) and Camera 2 (orange) each watch 4 spaces, and the Checks panel flags A05 to A08 as having no camera.</figcaption>
+                </figure>
+                <p>The whole floor can be turned and zoomed in 3D, which makes it easy to check where walls, columns and cameras sit before saving (Figure 3).</p>
+                <figure class="fig">
+                    <img src="img/mcr3/a3-floor-3d-view.png" alt="The floor in an angled 3D view" width="1914" height="916" loading="lazy">
+                    <figcaption><strong>Figure 3:</strong> The same floor in an angled 3D view, showing the walls, the 4 columns with safety bands, and the camera coverage guides on the parking row.</figcaption>
+                </figure>
+                <p>A new database migration adds floors, walls, columns, cameras, spaces and an occupancy history table, and the database already supports several floors per building even though the editor shows one. Each camera gets its own secret device key, which the future YOLO program uses to report a space's new state only when it changes; the server rejects any space that belongs to a different camera and logs every change.</p>
+                <p>Any logged-in user can open a read-only live map that colours spaces green (free), red (taken) or grey (unknown) and refreshes every 5 seconds (Figure 4). We tested it by sending a report for camera 1 from the command line, and space A01 turned red within one refresh.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/a4-live-floor-map.png" alt="Live floor map with A01 shown as taken" width="1918" height="913" loading="lazy">
+                    <figcaption><strong>Figure 4:</strong> Live floor map seen by users. A01 shows as taken after a camera report, while the other 11 spaces are still unknown.</figcaption>
+                </figure>
+                <p>We added 6 automated API tests covering saving and reloading floors, layout rules, ownership checks, device keys and occupancy reports, and all 37 tests in the project pass. The application now runs locally against the PostgreSQL database on our VPS instead of a local test database.</p>
+
+                <h3 id="video">Video: building a floor and placing cameras</h3>
+                <p>This video explains how the Parking Provider uses the system to create a 3D model for the parking space and places the cameras on the model.</p>
+                <div class="video">
+                    <video controls preload="metadata" playsinline>
+                        <source src="videos/Capstone%20Video%201.mp4" type="video/mp4">
+                        Your browser cannot play this video. <a href="videos/Capstone%20Video%201.mp4">Download it here</a>.
+                    </video>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <ul>
+                    <li>Implemented YOLO ByteTrack to assign tracking IDs to detected vehicles.</li>
+                </ul>
+                <figure class="fig">
+                    <img src="img/mcr3/b1-bytetrack-ids.png" alt="Vehicles detected with ByteTrack IDs" width="1012" height="517" loading="lazy">
+                    <figcaption><strong>Figure 1:</strong> ByteTrack Vehicle ID Assignment</figcaption>
+                </figure>
+                <p>The above program detects the different types of vehicles using the YOLO pretrained model. As shown above, 2&ndash;cars, 3&ndash;motorcycles, 5&ndash;buses and 7&ndash;trucks. ByteTrack associates a vehicle with a specific ID, and is able to recognize the vehicle as it moves through the capture using a predictive algorithm that compares the current and next frame locations of the bounding boxes of the vehicle. Different vehicles that are tracked by YOLO are assigned different IDs, while the same vehicle has its ID retained. The ID is stored in the box.id variable.</p>
+                <p>The vehicle ID is then extracted from the ByteTrack variable and stored into the vehicles array, along with the confidence of YOLO detecting a vehicle, and the coordinates in which the vehicle's bounding box is in the footage.</p>
+                <ul>
+                    <li>Established stable parking-space IDs (P1&ndash;P6) and calculated their center coordinates.</li>
+                </ul>
+                <figure class="fig">
+                    <img src="img/mcr3/b2-space-ids.png" alt="Parking spaces P1 to P6 with coordinates" width="936" height="507" loading="lazy">
+                    <figcaption><strong>Figure 2:</strong> Parking Space ID With Manually Assigned Coordinates</figcaption>
+                </figure>
+                <figure class="fig">
+                    <img src="img/mcr3/b3-center-coords.png" alt="Code that calculates the center of each parking space" width="953" height="189" loading="lazy">
+                    <figcaption><strong>Figure 3:</strong> Center Coordinates Calculations for the Parking Spot</figcaption>
+                </figure>
+                <p>The parking space coordinates were manually assigned using the select_roi.py program (See Figure 4.) to six parking space IDs (since the prototype requires a minimum of six parking spaces in the model). To ensure accuracy of the vehicle detection, any objects in which the YOLO model determines to be a vehicle with less than 25% confidence are ignored, and the overlap for a vehicle to occupy a parking space must be over 30%.</p>
+                <p>The center coordinates are used as a means to simplify the identification of the parking space without using the four ROI coordinates.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/b4-select-roi-code.png" alt="select_roi.py code" width="921" height="211" loading="lazy">
+                    <img src="img/mcr3/b4-select-roi-output.png" alt="select_roi.py selecting parking regions" width="875" height="431" loading="lazy">
+                    <figcaption><strong>Figure 4:</strong> select_roi.py. This program sets the Regions of Interest (ROI) and saves the coordinates to a corresponding space ID.</figcaption>
+                </figure>
+                <ul>
+                    <li>Use YOLO detection confidence for each parking space to support detection reliability assessment and digital twin integration.</li>
+                </ul>
+                <figure class="fig">
+                    <img src="img/mcr3/b5-confidence-1.png" alt="Confidence code, part 1" width="1006" height="63" loading="lazy">
+                    <img src="img/mcr3/b5-confidence-2.png" alt="Confidence code, part 2" width="990" height="591" loading="lazy">
+                    <img src="img/mcr3/b5-confidence-3.png" alt="Confidence code, part 3" width="999" height="89" loading="lazy">
+                    <figcaption><strong>Figure 5:</strong> Accuracy/Confidence of Vehicle Detection</figcaption>
+                </figure>
+                <p>Figure 5 displays how the program retrieves the confidence of each passing vehicle and stores that value in the parking space information. If there are multiple vehicles qualifying for the same parking spot, the program chooses the vehicle that it has a higher confidence of (has a higher probability of being an actual vehicle). This ensures that the vehicle is detected accurately and the <u>correct</u> information (vehicle ID + confidence) is saved in the .json and transmitted to the backend.</p>
+                <ul>
+                    <li>Extended the occupancy system to export JSON data containing space availability, confidence, vehicle IDs, and coordinates.</li>
+                    <li>Implemented automatic JSON updates every second of video.</li>
+                    <li>Successfully tested the JSON output and prepared the data structure for digital twin integration.</li>
+                </ul>
+                <figure class="fig">
+                    <img src="img/mcr3/b6-json-export.png" alt="JSON export code" width="888" height="536" loading="lazy">
+                    <figcaption><strong>Figure 6:</strong> JSON Data Export Program</figcaption>
+                </figure>
+                <p>The section of code displayed in Figure 6 corresponds to the export of important vehicle data to a .json file every second of the capture, which can then be used in the backend and digital twin integration.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/b7-json-file.png" alt="Exported JSON file" width="834" height="601" loading="lazy">
+                    <figcaption><strong>Figure 7:</strong> JSON File</figcaption>
+                </figure>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <ul>
+                    <li>Updated FSM to support reservation-based entry authorization and tested logic through simulated hardware/test values.</li>
+                </ul>
+                <p>The base FSM for the gate controller was extended with reservation-based entry authorization, so the lot now manages two kinds of demand: walk-in drivers and drivers holding a prior reservation.</p>
+                <p>The controller tracks availableSpaces (physically free spaces) and a count of active reservations. The difference is generalAvailable, the spaces a walk-in may use. Reserved spaces are therefore held back even though they are physically empty.</p>
+                <p><strong>Reservation records.</strong> Each reservation has a code, an expiry time, and active and inUse flags. A reservation can only be created if an unreserved space exists, so reservations can never exceed capacity.</p>
+                <p><strong>Entry logic.</strong> A driver with a valid code is admitted even when walk-in spaces are exhausted. A walk-in is admitted only if an unreserved space exists. If only reserved spaces remain, the gate enters an AUTH_WAIT state for 10 s and waits for a code. If the lot is physically full, it blocks entry.</p>
+                <figure class="fig">
+                    <img src="img/mcr3/c8-fsm-reservations.png" alt="Gate FSM diagram with reservation support" width="2048" height="1235" loading="lazy">
+                    <figcaption><strong>Figure 8:</strong> Updated FSM diagram with reservation support</figcaption>
+                </figure>
+                <figure class="fig narrow">
+                    <img src="img/mcr3/c9-tinkercad-circuit.png" alt="Tinkercad circuit for the gate controller" width="1312" height="979" loading="lazy">
+                    <figcaption><strong>Figure 9:</strong> Tinkercad simulated circuit used to test gate controller logic</figcaption>
+                </figure>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Created test scenarios covering the full user flow from finding an available spot to booking, payment confirmation, entry, routing, parking, and exit.</li>
+                    <li>Checked booking scenarios involving available, occupied, and already-reserved spaces to verify the expected system responses.</li>
+                    <li>Set up a comparison of parking-space occupancy, available-space count, and gate status between the physical prototype, website, and digital twin.</li>
+                    <li>Prepared tests to check whether parking and exiting update the space status consistently across all three systems.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- DIFFICULTIES -->
+    <section class="part" id="difficulties">
+        <h2>Difficulties encountered</h2>
+        <p class="lede">Issues found during the period and how we addressed them or plan to.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content"><p class="empty">Not yet reported.</p></div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <p>During this work we ran into a few problems. Placing cameras was hard in the top view, because a 0.6 m column is only a few pixels wide, so we changed the editor to mount a camera on the nearest wall or column face to the click. Saving the whole floor at once also caused a problem: new spaces had to point to cameras that did not have a database id yet. We solved it by giving each camera a temporary reference that the server swaps for its real id when saving.</p>
+                <p>Connecting the app on our PC to the PostgreSQL database on the VPS first failed, because the server did not allow our IP address. We had to add the IP to the server's access list (pg_hba.conf) and reload PostgreSQL. Finally, our first command-line test of the camera API was rejected as invalid JSON, because the Windows Command Prompt handles quotes differently from PowerShell, and we fixed this by escaping the quotes in the request.</p>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <h3>1. Current development and optimization challenges</h3>
+                <ul>
+                    <li>Vehicle tracking consistency and duplicate detections require further testing using prerecorded footage, preferably from various sources.</li>
+                    <li>Passing or briefly stopped vehicles may continue to cause false occupancy readings.</li>
+                    <li>Detection confidence and ROI overlap thresholds require further optimization to minimize false positives.</li>
+                    <li>Multi-frame confirmation delays need to be evaluated for accuracy and responsiveness.</li>
+                </ul>
+                <h3>2. Testing deferred until physical implementation</h3>
+                <ul>
+                    <li>Camera positioning and ROI calibration must be verified using actual camera feed.</li>
+                    <li>Detection accuracy under real-world lighting, shadows, and occlusions requires further testing.</li>
+                    <li>Real-time processing performance and latency must be evaluated with the physical camera.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <p>Two sensors in series can detect that something passed, but they can't reliably tell an entry from an exit, causing a count inaccuracy. Further troubleshooting is required to resolve this issue. Such cases that can corrupt the count include:</p>
+                <ul>
+                    <li>A vehicle stopping or reversing in the beam.</li>
+                    <li>Two cars tailgating through one gate cycle, which the current logic counts as one.</li>
+                    <li>A sensor being temporarily blocked.</li>
+                    <li>An entry and an exit happening at the same moment.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Some website features were still being worked on, making it difficult to test the full booking and payment process. More testing will be done once everything is connected.</li>
+                    <li>The parking-space status did not always match between the physical prototype, website, and digital twin. Further testing is needed to make sure they all update correctly.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEXT -->
+    <section class="part" id="next">
+        <h2>Tasks for the next period</h2>
+        <p class="lede">The milestone tasks planned for the next reporting period.</p>
+
+        <div class="row group">
+            <div class="who">Group</div>
+            <div class="content">
+                <ul>
+                    <li>Run complete end-to-end integration: CV &rarr; backend &rarr; website/routing/twin &rarr; gate/display.</li>
+                    <li>Tune application and CV modules using measured results.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student A<small>Mohamed Abouzaid</small></div>
+            <div class="content">
+                <ul>
+                    <li>Integrate all application modules; add operator monitoring/event history.</li>
+                    <li>Improve backend/UI performance, routing behavior, and recovery handling.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student B<small>Ashwini Erambalur</small></div>
+            <div class="content">
+                <ul>
+                    <li>Test lighting changes, temporary occlusion, stopping/reversing, and duplicate detections.</li>
+                    <li>Tune detection confidence, overlap thresholds, tracking, and frame confirmation.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student C<small>Julian Vila</small></div>
+            <div class="content">
+                <ul>
+                    <li>Test repeated gate cycles, timing, fail-safe behavior, and sensor faults.</li>
+                    <li>Tune gate timing and implement fault/recovery handling.</li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="who">Student D<small>Ezz Alzokm</small></div>
+            <div class="content">
+                <ul>
+                    <li>Run a full-system test matrix and collect accuracy, latency, and reliability data.</li>
+                    <li>Analyze results, verify fixes, and maintain requirement traceability.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer>COE/ELE 70AB Capstone | MCR III</footer>
+
+</body>
+</html>

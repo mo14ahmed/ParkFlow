@@ -13,15 +13,17 @@ What works now (plan Phases 0 to 3):
 
 Design rules for every screen: [docs/design-system.md](docs/design-system.md).
 
-## Run it on your PC (no database install)
+## Run it on your PC (using the database on the VPS)
 
-Needs JDK 17 or newer.
+Needs JDK 17 or newer. There is one settings file, `src/main/resources/application.properties`, and one database: PostgreSQL on the VPS (179.236.65.63). Running on your PC shows and changes the real data.
 
 ```powershell
-.\mvnw.cmd clean spring-boot:run "-Dspring-boot.run.profiles=local"
+.\mvnw.cmd clean spring-boot:run
 ```
 
-Open http://localhost:8080/login.html. The `local` profile keeps data in `./data/` (H2 database) and creates an admin account `admin` / `admin-local-only`. Never use this profile on the VPS.
+Open http://localhost:8080/login.html and log in with your accounts from the server.
+
+For this to work, PostgreSQL on the VPS must accept connections from your PC: `listen_addresses` in `postgresql.conf`, a `host parkflow parkflow <your home IP>/32 scram-sha-256` line in `pg_hba.conf`, and port 5432 open in the firewall for your IP only.
 
 Run the tests: `.\mvnw.cmd clean verify` (uses an in-memory database, nothing to install).
 
@@ -82,6 +84,10 @@ After sign up or log in, send the token on every call: `Authorization: Bearer <t
 | GET | `/api/admin/providers?status=PENDING` | admin | status optional | `[{provider: user, buildingCount}]` |
 | POST | `/api/admin/providers/{id}/approve` | admin | | `user` |
 | POST | `/api/admin/providers/{id}/reject` | admin | | `user` |
+| GET | `/api/provider/buildings/{id}/floor` | provider (own) | | `floor` (an unsaved 60 x 40 m default with `saved: false` before the first save) |
+| PUT | `/api/provider/buildings/{id}/floor` | provider (own) | `{name, width, length, walls, columns, cameras, spaces}` (see below) | `floor` |
+| POST | `/api/provider/cameras/{id}/key` | provider (own) | | `{cameraId, cameraName, key, createdAt}`. The key is shown only once; a new key replaces the old one |
+| GET | `/api/buildings/{id}/floor` | logged in (any role) | | live `floor` with each space's `status`. Hidden until the provider is approved (the owner always sees it) |
 
 `user` is `{id, username, firstName, lastName, phone, role, status, companyName, workLocation, createdAt, reviewedAt}`.
 `status` is `ACTIVE`, `PENDING` (provider waiting) or `REJECTED`. Distances are straight-line kilometres.
@@ -96,6 +102,40 @@ TOKEN=$(curl -s https://www.parkflow.tech/api/auth/login -H 'Content-Type: appli
 curl -s "https://www.parkflow.tech/api/search?q=CN%20Tower" -H "Authorization: Bearer $TOKEN"
 ```
 
+## Floor map, cameras and occupancy
+
+Providers draw one floor per building in the 3D editor (`floor-editor.html?building=ID`, linked as **Floor map** on My parking). Everyone logged in can watch it live at `floor.html?building=ID` (linked from search results). The database already allows several floors per building (`floors.level`); the website uses level 0.
+
+All positions are metres from the floor's corner: `x` along the width, `z` along the length. Angles are degrees seen from above: 0 points to +x, 90 to +z.
+
+- `walls`: `[{x1, z1, x2, z2, thickness}]`
+- `columns`: `[{x, z, width, depth}]` (centre and size)
+- `cameras`: `[{id?, ref, name, mount: "WALL"|"COLUMN", x, z, direction}]`. New cameras have no `id`; `ref` is any name the editor picks so spaces can point to the camera before it is saved (saved cameras come back with `ref: "c" + id`).
+- `spaces`: `[{id?, label, x, z, width, length, rotation, cameraRef?}]`. Labels are unique per floor. Each space has at most one camera.
+
+A saved `floor` also returns `status` per space (`FREE`, `OCCUPIED`, `UNKNOWN`) and `counts: {total, free, occupied, unknown, withoutCamera}`.
+
+### Camera detector API (for the YOLO program later)
+
+The detector next to each camera logs in with that camera's device key, made in the editor (select the camera, **Create key**). Send it as `X-Camera-Key: pfc_...`. No user login is needed.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/devices/camera` | | `{cameraId, cameraName, buildingId, floorId, spaces: [{id, label, status}]}`: the spaces this camera watches |
+| POST | `/api/devices/camera/occupancy` | `{spaces: [{spaceId or label, occupied: true\|false, observedAt?}]}` | `{changed, unchanged, spaces}` |
+| POST | `/api/devices/camera/heartbeat` | | 204 |
+
+Send a space only when its state changed. The server ignores reports that match the current state, logs every real change in `occupancy_events`, and refuses the whole report (403) if it names a space that belongs to another camera.
+
+```bash
+KEY=pfc_12_xxxxxxxx
+curl -s https://www.parkflow.tech/api/devices/camera -H "X-Camera-Key: $KEY"
+curl -s https://www.parkflow.tech/api/devices/camera/occupancy -H "X-Camera-Key: $KEY" \
+  -H 'Content-Type: application/json' -d '{"spaces":[{"label":"A01","occupied":true}]}'
+```
+
+The 3D pages use [three.js](https://threejs.org) r169, copied into `static/vendor/three` (MIT licence).
+
 ## Maps and place search
 
 - Map: [Leaflet](https://leafletjs.com) 1.9.4 (copied into `static/vendor/leaflet`) with OpenStreetMap tiles. Keep the "© OpenStreetMap contributors" credit visible.
@@ -107,15 +147,21 @@ curl -s "https://www.parkflow.tech/api/search?q=CN%20Tower" -H "Authorization: B
 src/main/java/com/parkflow/ParkFlow/
   user/       accounts, sign up, log in, profile, admin approvals
   building/   providers' parking buildings and the "closest buildings" query
+  floor/      floor maps (walls, columns, spaces, cameras), camera device keys, occupancy reports
   search/     place search (Nominatim)
   config/     security (tokens, roles), first admin account
   common/     JSON error responses
   clipboard/  the private daily clipboard (unchanged, hidden from menus)
 src/main/resources/
   db/migration/   database tables (Flyway)
-  static/         website: login, signup, account, provider, search, admin pages + css/js
+  static/         website: login, signup, account, provider, search, admin, floor-editor, floor pages + css/js
 docs/design-system.md   colors, fonts, components for web, iOS and ESP32
+esp32-car-screen/       in-car screen firmware (Arduino 3 + LVGL), see its README
 ```
+
+## ESP32 in-car screen
+
+Firmware for the Elecrow CrowPanel 5.0" (ESP32-S3, 800x480 touch LCD) is in [esp32-car-screen](esp32-car-screen/README.md). It is written with Arduino core 3 + LVGL 9 (Espressif RGB LCD driver with a bounce buffer) and built with VS Code + PlatformIO. The customer logs in, searches a destination and sees the 5 closest parking buildings using `POST /api/auth/login`, `GET /api/me` and `GET /api/search`. It gets internet from a phone hotspot. An earlier Arduino + LovyanGFX version redrew too slowly on this panel and was replaced.
 
 ## The clipboard
 

@@ -75,7 +75,7 @@
         return '<li class="' + (i === 0 ? "closest" : "") + '" data-id="' + b.id + '"><div class="result"><div>' +
           "<strong>" + PF.esc(b.name) + "</strong>" + (i === 0 ? ' <span class="badge ok">Closest</span>' : "") +
           '<div class="small muted">' + PF.esc(b.company || "") + "</div>" +
-          '<div class="small"><a href="#" data-show="' + b.id + '">Show on map</a> · <a href="' + dir + '" target="_blank" rel="noopener">Walking route</a></div>' +
+          '<div class="small"><a href="#" data-show="' + b.id + '">Show on map</a> · <a href="floor.html?building=' + b.id + '">Live floor map</a> · <a href="' + dir + '" target="_blank" rel="noopener">Walking route</a></div>' +
           '</div><div class="dist" aria-label="' + PF.km(b.distanceKm) + ' away">' + PF.km(b.distanceKm) + "</div></div></li>";
       }).join("");
       list.forEach((b) => {

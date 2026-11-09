@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/floor.css">
+    <title>Live floor map | ParkFlow</title>
+    <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+</head>
+<body class="floor-page">
+<header id="topbar"></header>
+<div class="fe">
+    <aside class="fe-side" aria-label="Floor details">
+        <div class="fe-head">
+            <a href="#" id="back" class="small">&larr; Back</a>
+            <h1 id="title">Live floor map</h1>
+            <p id="floorName" class="muted small"></p>
+            <div id="status" class="msg"></div>
+        </div>
+        <section class="fe-box">
+            <h2>Right now</h2>
+            <div class="fe-stats">
+                <div><strong id="nFree">–</strong><span class="small">Free</span></div>
+                <div><strong id="nTaken">–</strong><span class="small">Taken</span></div>
+                <div><strong id="nUnknown">–</strong><span class="small">Unknown</span></div>
+            </div>
+            <p class="small muted" id="updated"></p>
+        </section>
+        <section class="fe-box">
+            <h2>Colours</h2>
+            <div class="fe-legend">
+                <span><span class="swatch" style="background:#2E9E5B"></span>Free</span>
+                <span><span class="swatch" style="background:#C8423B"></span>Taken</span>
+                <span><span class="swatch" style="background:#8A9096"></span>Unknown</span>
+            </div>
+            <p class="small muted">Unknown means no camera has reported that space yet.</p>
+        </section>
+    </aside>
+    <section class="fe-stage" aria-label="3D floor map">
+        <div class="fe-bar">
+            <div class="row">
+                <button type="button" class="btn btn-secondary btn-small" id="viewTop">Top view</button>
+                <button type="button" class="btn btn-secondary btn-small" id="view3d">3D view</button>
+            </div>
+            <span class="small muted">Updates every 5 seconds</span>
+        </div>
+        <div id="canvas" class="fe-canvas"><div id="tip" class="fe-tip" hidden></div></div>
+        <p class="fe-help small">Left drag: move. Right drag: turn. Scroll: zoom. Point at a space to see its name.</p>
+    </section>
+</div>
+<script src="js/app.js"></script>
+<script type="module" src="js/floor-view.js"></script>
+</body>
+</html>

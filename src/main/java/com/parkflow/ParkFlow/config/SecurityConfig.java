@@ -27,12 +27,14 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
+import com.parkflow.ParkFlow.floor.CameraDeviceService;
 
 /**
- * Three security chains, checked in order:
+ * Four security chains, checked in order:
  * 1. /api/clipboard/**  the private clipboard, protected by the X-API-Key header (unchanged behavior).
- * 2. /api/**            the parking API, protected by login tokens (JWT) and roles.
- * 3. everything else    the static website pages: public.
+ * 2. /api/devices/**    camera detector programs, protected by each camera's device key (X-Camera-Key header).
+ * 3. /api/**            the parking API, protected by login tokens (JWT) and roles.
+ * 4. everything else    the static website pages: public.
  */
 @Configuration
 public class SecurityConfig {
@@ -77,6 +79,40 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
+    SecurityFilterChain deviceChain(HttpSecurity http, CameraDeviceService devices) throws Exception {
+        http.securityMatcher("/api/devices", "/api/devices/**")
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .csrf(c -> c.disable())
+            .authorizeHttpRequests(a -> a.anyRequest().hasAuthority("CAMERA"))
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint((req, res, err) -> json(res, 401, "Invalid camera key"))
+                .accessDeniedHandler((req, res, err) -> json(res, 403, "Invalid camera key")))
+            .addFilterBefore(new OncePerRequestFilter() {
+                @Override
+                protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                        throws ServletException, IOException {
+                    response.setHeader("Cache-Control", "no-store");
+                    var cameraId = devices.authenticate(request.getHeader("X-Camera-Key"));
+                    if (cameraId.isEmpty()) {
+                        json(response, 401, "Invalid camera key");
+                        return;
+                    }
+                    var context = SecurityContextHolder.createEmptyContext();
+                    context.setAuthentication(new UsernamePasswordAuthenticationToken(
+                            cameraId.get(), null, List.of(new SimpleGrantedAuthority("CAMERA"))));
+                    SecurityContextHolder.setContext(context);
+                    try {
+                        chain.doFilter(request, response);
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                    }
+                }
+            }, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    @Bean
+    @Order(3)
     SecurityFilterChain apiChain(HttpSecurity http, TokenService tokens) throws Exception {
         JwtGrantedAuthoritiesConverter roles = new JwtGrantedAuthoritiesConverter();
         roles.setAuthoritiesClaimName("role");
@@ -92,6 +128,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/provider/**").hasRole("PROVIDER")
                 .requestMatchers("/api/places").hasAnyRole("CUSTOMER", "PROVIDER", "ADMIN") // providers use it to find their address
+                .requestMatchers(HttpMethod.GET, "/api/buildings/*/floor").authenticated() // live floor map: everyone for now
                 .requestMatchers("/api/search", "/api/buildings/**").hasAnyRole("CUSTOMER", "ADMIN")
                 .requestMatchers("/api/me", "/api/me/**").authenticated()
                 .anyRequest().denyAll())
@@ -107,10 +144,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    @Order(3)
+    @Order(4)
     SecurityFilterChain websiteChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(a -> a
-                .requestMatchers(HttpMethod.GET, "/", "/*.html", "/css/**", "/js/**", "/img/**", "/vendor/**",
+                .requestMatchers(HttpMethod.GET, "/", "/*.html", "/css/**", "/js/**", "/img/**", "/videos/**", "/vendor/**",
                         "/clipboard.js", "/clipboard.css", "/favicon.ico", "/error").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll());

@@ -35,4 +35,6 @@ build/
 ### ParkFlow ###
 API-KEY.txt
 data/
+# Large videos are copied to the VPS by hand (GitHub limit is 100 MB)
+src/main/resources/static/videos/
 *.env

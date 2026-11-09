@@ -82,7 +82,7 @@ display `"Arial Narrow", system-ui, sans-serif`.
 
 Other platforms:
 - **iOS:** bundle Barlow and Barlow Condensed (both are free under the SIL Open Font License), or use SF Pro and SF Pro Condensed if bundling is a problem. Support Dynamic Type.
-- **ESP32 LCD:** convert Barlow to bitmap fonts for the UI library (for LVGL use the online font converter). Suggested sizes: 20 px body, 28 px headings, 48 px for big numbers. Include only the characters you need to save flash.
+- **ESP32 car screen (LVGL):** LVGL's built-in Montserrat (ASCII only). Sizes: 16 px captions, 20 px body, 28 px headings and keys, 40 px big distances.
 
 ## 4. Spacing, shape and layout
 
@@ -136,7 +136,10 @@ Height 44 px minimum (56 px on the car screen). Padding 12 px x 20 px. Disabled:
 - Visible focus everywhere: 3 px `--line-yellow` outline, 2 px offset.
 - Touch targets at least 44 x 44 px (56 x 56 px on the car screen).
 
-## 8. ESP32 car screen (5.5 inch touch LCD)
+## 8. ESP32 car screen (CrowPanel 5.0", 800 x 480 touch LCD)
+
+Hardware: Elecrow CrowPanel 5.0" ESP32-S3 (ESP32-S3-WROOM-1-N4R8), 800 x 480 RGB LCD, GT911 touch.
+Firmware: `esp32-car-screen/` in this repo, built with Arduino core 3 + LVGL 9 (see its README).
 
 The car screen is used while driving or parked, so it is simpler than the website.
 
@@ -145,7 +148,7 @@ The car screen is used while driving or parked, so it is simpler than the websit
 - Large targets: 56 px tall buttons, at least 12 px apart. The on-screen keyboard keys at least 48 px.
 - Text: 20 px minimum, 28 px headings, distances in 48 px Barlow Condensed.
 - Show connection state in the corner (phone hotspot connected or not) using `--free` / `--offline` plus a word.
-- Exact screen resolution: to be filled in when the LCD details arrive.
+- Screen: 800 x 480. Top bar 55 px; buttons and fields 56 px tall; on-screen keyboard is the bottom 282 px.
 
 ## 9. Tokens as CSS
 

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/floor.css">
+    <title>Floor editor | ParkFlow</title>
+    <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.min.js" } }</script>
+</head>
+<body class="floor-page">
+<header id="topbar"></header>
+<div class="fe">
+    <aside class="fe-side" aria-label="Editor tools">
+        <div class="fe-head">
+            <a href="provider.html" class="small">&larr; My parking</a>
+            <h1 id="title">Floor editor</h1>
+            <div id="status" class="msg"></div>
+        </div>
+
+        <section class="fe-box">
+            <h2>Tools</h2>
+            <div class="fe-tools" role="toolbar" aria-label="Tools">
+                <button type="button" data-tool="select" title="Select and drag things (V)">Select</button>
+                <button type="button" data-tool="wall" title="Click start and end of a wall. Esc stops (W)">Wall</button>
+                <button type="button" data-tool="column" title="Click to place a column (C)">Column</button>
+                <button type="button" data-tool="space" title="Click to place a parking space (S)">Parking space</button>
+                <button type="button" data-tool="camera" title="Click a wall or column to mount a camera (K)">Camera</button>
+                <button type="button" data-tool="assign" title="Click spaces to give them to the selected camera (A)">Assign spaces</button>
+            </div>
+            <p id="hint" class="small muted fe-hint"></p>
+        </section>
+
+        <section class="fe-box" id="props" hidden>
+            <h2 id="propsTitle">Selected</h2>
+            <div id="propsBody"></div>
+        </section>
+
+        <section class="fe-box">
+            <h2>Cameras</h2>
+            <ul class="fe-list" id="cameraList"></ul>
+        </section>
+
+        <section class="fe-box">
+            <h2>Checks</h2>
+            <p id="counts" class="small"></p>
+            <div id="unassigned" class="small"></div>
+        </section>
+
+        <details class="fe-box">
+            <summary><h2>Floor and new spaces</h2></summary>
+            <div class="fe-grid">
+                <label>Floor name <input id="floorName" maxlength="50"></label>
+                <label>Width (m) <input id="floorWidth" type="number" min="5" max="500" step="0.5"></label>
+                <label>Length (m) <input id="floorLength" type="number" min="5" max="500" step="0.5"></label>
+            </div>
+            <button type="button" class="btn btn-secondary btn-small" id="outerWalls">Add outside walls</button>
+            <h3>New parking spaces</h3>
+            <div class="fe-grid">
+                <label>Width (m) <input id="defW" type="number" min="1" max="20" step="0.1" value="2.6"></label>
+                <label>Length (m) <input id="defL" type="number" min="1" max="30" step="0.1" value="5.5"></label>
+                <label>Turn (&deg;) <input id="defR" type="number" step="15" value="0"></label>
+                <label>Name starts with <input id="defPrefix" maxlength="10" value="A"></label>
+            </div>
+            <label class="fe-check"><input type="checkbox" id="snap" checked> Snap to 0.5 m grid</label>
+        </details>
+    </aside>
+
+    <section class="fe-stage" aria-label="3D floor map">
+        <div class="fe-bar">
+            <div class="row">
+                <button type="button" class="btn btn-secondary btn-small" id="viewTop">Top view</button>
+                <button type="button" class="btn btn-secondary btn-small" id="view3d">3D view</button>
+                <label class="fe-check"><input type="checkbox" id="live"> Live states</label>
+            </div>
+            <div class="row">
+                <span id="dirty" class="small muted"></span>
+                <a class="btn btn-secondary btn-small" id="viewLink" href="#" target="_blank" rel="noopener">Open live map</a>
+                <button type="button" class="btn btn-primary btn-small" id="save">Save floor</button>
+            </div>
+        </div>
+        <div id="canvas" class="fe-canvas"></div>
+        <p class="fe-help small">Left click: use the tool. Right drag: turn. Scroll: zoom. Middle drag or left drag on empty floor with Select: move the view. Delete removes the selected item, R turns a space by 90&deg;.</p>
+    </section>
+</div>
+<script src="js/app.js"></script>
+<script type="module" src="js/floor-editor.js"></script>
+</body>
+</html>
